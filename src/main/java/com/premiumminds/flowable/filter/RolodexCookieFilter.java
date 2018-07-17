@@ -3,13 +3,11 @@ package com.premiumminds.flowable.filter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-
 import javax.annotation.PostConstruct;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import org.flowable.ui.common.filter.FlowableCookieFilterCallback;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
@@ -28,45 +26,48 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class RolodexCookieFilter extends OncePerRequestFilter {
-	
-	private static final Logger LOGGER = LoggerFactory.getLogger(RolodexCookieFilter.class);
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RolodexCookieFilter.class);
+
     protected FlowableCookieFilterCallback filterCallback;
-       
+
     protected final RemoteIdmService remoteIdmService;
 
     protected final FlowableCommonAppProperties properties;
 
     protected String idmAppUrl;
+
     protected String redirectUrlOnAuthSuccess;
-    
+
     protected Collection<String> requiredPrivileges;
-    
-    public RolodexCookieFilter(RemoteIdmService remoteIdmService, FlowableCommonAppProperties properties) {
+
+    public RolodexCookieFilter(RemoteIdmService remoteIdmService,
+            FlowableCommonAppProperties properties) {
         this.remoteIdmService = remoteIdmService;
         this.properties = properties;
     }
-    
+
     @PostConstruct
     protected void initCaches() {
         initIdmAppRedirectUrl();
     }
-    
+
     protected void initIdmAppRedirectUrl() {
         idmAppUrl = properties.determineIdmAppRedirectUrl();
 
         redirectUrlOnAuthSuccess = properties.getRedirectOnAuthSuccess();
     }
-    
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-    	        
+
         if (!skipAuthenticationCheck(request)) {
             RemoteToken token = new RemoteToken();
             token.setId("TOKEN_ID");
             try {
                 RemoteUser user = new RemoteUser();
-                user.setId("1");
+                user.setId("jcoelho");
                 user.setFirstName("José");
                 user.setLastName("Coelho");
                 user.setEmail("jose.coelho@premium-minds.com");
@@ -76,15 +77,16 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                 Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_MODELER));
                 authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
-                
+
                 FlowableAppUser appUser = new FlowableAppUser(user, "userId", authorities);
 
                 if (!validateRequiredPriviliges(request, response, appUser)) {
                     redirectOrSendNotPermitted(request, response);
                     return; // no need to execute any other filters
                 }
-                SecurityContextHolder.getContext().setAuthentication(new RememberMeAuthenticationToken(token.getId(),
-                    appUser, appUser.getAuthorities()));
+                SecurityContextHolder.getContext()
+                        .setAuthentication(new RememberMeAuthenticationToken(token.getId(), appUser,
+                                appUser.getAuthorities()));
 
             } catch (Exception e) {
                 LOGGER.trace("Could not set necessary threadlocals for token", e);
@@ -93,7 +95,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
             if (filterCallback != null) {
                 filterCallback.onValidTokenFound(request, response, token);
             }
-           
+
         }
 
         try {
@@ -104,7 +106,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
             }
         }
     }
-    
+
     protected boolean skipAuthenticationCheck(HttpServletRequest request) {
         return request.getRequestURI().endsWith(".css") ||
                 request.getRequestURI().endsWith(".js") ||
@@ -117,25 +119,26 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                 request.getRequestURI().endsWith(".tif") ||
                 request.getRequestURI().endsWith(".tiff");
     }
-    
-    protected void redirectOrSendNotPermitted(HttpServletRequest request, HttpServletResponse response) {
+
+    protected void redirectOrSendNotPermitted(HttpServletRequest request,
+            HttpServletResponse response) {
         if (isRootPath(request)) {
             redirectToLogin(request, response);
         } else {
             sendNotPermitted(request, response);
         }
     }
-    
+
     protected void redirectToLogin(HttpServletRequest request, HttpServletResponse response) {
-        try {   
+        try {
             String baseRedirectUrl = idmAppUrl + "#/login?redirectOnAuthSuccess=true&redirectUrl=";
             if (redirectUrlOnAuthSuccess != null) {
                 response.sendRedirect(baseRedirectUrl + redirectUrlOnAuthSuccess);
-                
+
             } else {
                 response.sendRedirect(baseRedirectUrl + request.getRequestURL());
             }
-            
+
         } catch (IOException e) {
             LOGGER.warn("Could not redirect to {}", idmAppUrl, e);
         }
@@ -149,16 +152,17 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
         String pathInfo = request.getPathInfo();
         return pathInfo == null || "".equals(pathInfo) || "/".equals(pathInfo);
     }
-    
-    protected boolean validateRequiredPriviliges(HttpServletRequest request, HttpServletResponse response, FlowableAppUser user) {
+
+    protected boolean validateRequiredPriviliges(HttpServletRequest request,
+            HttpServletResponse response, FlowableAppUser user) {
 
         if (user == null) {
             return true;
         }
 
         String pathInfo = request.getPathInfo();
-        if (isRootPath(request)
-                || !pathInfo.startsWith("/rest")) { // rest calls handled by Spring Security conf
+        if (isRootPath(request) || !pathInfo.startsWith("/rest")) { // rest calls handled by Spring
+                                                                    // Security conf
 
             if (requiredPrivileges != null && requiredPrivileges.size() > 0) {
 
@@ -190,7 +194,5 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     public void setFilterCallback(FlowableCookieFilterCallback filterCallback) {
         this.filterCallback = filterCallback;
     }
-
-
 
 }
