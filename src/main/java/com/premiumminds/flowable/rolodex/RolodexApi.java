@@ -11,12 +11,12 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
@@ -24,12 +24,11 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.flowable.ui.common.model.RemoteUser;
 
 public class RolodexApi {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
+    // private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
 
     private static final String PROVIDER_URL = "http://ci.rolodex.forno.premium-minds.com/api/";
 
@@ -93,27 +92,16 @@ public class RolodexApi {
     private HttpPost getClientCredentialsOauth2TokenRequest() {
         try {
             URIBuilder uriBuilder = new URIBuilder(config.getTokenEndpointURI());
-
             HttpPost post = new HttpPost(uriBuilder.build());
-
-            post.setEntity(
-                    new UrlEncodedFormEntity(generateClientCredentialsRequestParams(config)));
-
+            post.setEntity(new UrlEncodedFormEntity(generateClientCredentialsRequestParams()));
             generateClientCredentialsRequestHeaders(post);
-
-            LOGGER.info(post.toString());
-            for (Header h : post.getAllHeaders()) {
-                LOGGER.info("HEADER: " + h.getName() + " - " + h.getValue());
-            }
-            LOGGER.info(post.getEntity().toString());
-
             return post;
         } catch (UnsupportedEncodingException | URISyntaxException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private List<NameValuePair> generateClientCredentialsRequestParams(Config config) {
+    private List<NameValuePair> generateClientCredentialsRequestParams() {
         List<NameValuePair> rparams = new ArrayList<>(3);
         rparams.add(new BasicNameValuePair("grant_type", "client_credentials"));
         rparams.add(new BasicNameValuePair("scope", config.getScope()));
@@ -123,28 +111,79 @@ public class RolodexApi {
 
     private void generateClientCredentialsRequestHeaders(HttpPost post) {
 
-        post.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(Base64.getEncoder()
-                .encode((CLIENT_ID + ":" + CLIENT_SECRET).getBytes(Charset.forName("UTF-8")))));
+        post.addHeader(HttpHeaders.AUTHORIZATION,
+                "Basic " + new String(Base64.getEncoder()
+                        .encode((config.getClientId() + ":" + config.getClientSecret())
+                                .getBytes(Charset.forName("UTF-8")))));
         post.addHeader(HttpHeaders.CONTENT_TYPE,
                 ContentType.APPLICATION_FORM_URLENCODED.getMimeType());
         post.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
+    }
+
+    public List<RemoteUser> getEmployees(OAuth2Token token) throws IOException {
+
+        HttpGet request = getGetRequest(config.getUsersEndpointURI(), token);
+        CloseableHttpClient client = HttpClients.createDefault();
+        List<RemoteUser> employees = new ArrayList<>();
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                JsonNode node = mapper.readTree(jsonString);
+                for (JsonNode elem : node) {
+                    employees.add(remoteUserFromJsonNode(elem));
+                }
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return employees;
+    }
+
+    private HttpGet getGetRequest(URI uri, OAuth2Token token) {
+        HttpGet request = new HttpGet(uri);
+        request.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
+        request.addHeader(HttpHeaders.AUTHORIZATION, token.getType() + " " + token.getToken());
+        return request;
+    }
+
+    private RemoteUser remoteUserFromJsonNode(JsonNode node) {
+        RemoteUser user = new RemoteUser();
+        user.setEmail(node.get("email").asText());
+        user.setFirstName(node.get("firstName").asText());
+        user.setLastName(node.get("surname").asText());
+        user.setFullName(node.get("firstName").asText() + " " + node.get("surname").asText());
+        user.setId(node.get("uid").asText());
+        return user;
     }
 
     public static class OAuth2Token {
 
         private final String token;
 
-        private OAuth2Token(String token) {
+        private final String type;
+
+        private OAuth2Token(String token, String type) {
             this.token = token;
+            this.type = type;
         }
 
         static OAuth2Token fromJsonNode(JsonNode node) {
             final String token = node.get("access_token").asText();
-            return new OAuth2Token(token);
+            final String type = node.get("token_type").asText();
+            return new OAuth2Token(token, type);
         }
 
         public String getToken() {
             return token;
+        }
+
+        public String getType() {
+            return type;
         }
     }
 
