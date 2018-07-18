@@ -1,6 +1,8 @@
 package com.premiumminds.flowable.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.premiumminds.flowable.rolodex.RolodexApi;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.flowable.ui.common.model.RemoteGroup;
@@ -41,8 +43,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteUser authenticateUser(String username, String password) {
-    	System.out.println("AUTHENTICATE USER");
-    	RemoteUser user = new RemoteUser();
+        RemoteUser user = new RemoteUser();
         user.setId("jcoelho");
         user.setFirstName("José");
         user.setLastName("Coelho");
@@ -52,7 +53,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         user.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
         user.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
         user.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
-        
+
         return user;
     }
 
@@ -76,29 +77,26 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public List<RemoteUser> findUsersByNameFilter(String filter) {
-        RemoteUser user1 = new RemoteUser();
-        user1.setId("jcoelho");
-        user1.setFirstName("José");
-        user1.setLastName("Coelho");
-        user1.setEmail("jose.coelho@premium-minds.com");
-        user1.setTenantId("TENANT ID");
-        user1.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
-        user1.getPrivileges().add("Privilege 1");
 
-        RemoteUser user2 = new RemoteUser();
-        user2.setId("respadinha");
-        user2.setFirstName("Ricardo");
-        user2.setLastName("Espadinha");
-        user2.setEmail("ricardo.espadinha@premium-minds.com");
-        user2.setTenantId("TENANT ID RE");
-        user2.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
-        user2.getPrivileges().add("Privilege 1");
+        List<RemoteUser> employees;
+        List<RemoteUser> foundEmployees;
 
-        List<RemoteUser> list = new ArrayList<>();
-        list.add(user1);
-        list.add(user2);
-        return list;
+        RolodexApi rolodex = new RolodexApi();
+        try {
+            RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
+            employees = rolodex.getEmployees(token);
+            foundEmployees = new ArrayList<>();
 
+            for (RemoteUser user : employees) {
+                if (user.getFullName().toLowerCase().contains(filter.toLowerCase())) {
+                    foundEmployees.add(user);
+                }
+            }
+            return foundEmployees;
+        } catch (IOException e) {
+            LOGGER.error("Unable to retrieve users.");
+            return new ArrayList<>(0);
+        }
     }
 
     @Override
