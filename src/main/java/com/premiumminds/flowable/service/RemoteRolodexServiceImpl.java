@@ -7,6 +7,7 @@ import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
 import org.flowable.ui.common.properties.FlowableCommonAppProperties;
+import org.flowable.ui.common.security.DefaultPrivileges;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,19 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteUser authenticateUser(String username, String password) {
-        return null;
+    	System.out.println("AUTHENTICATE USER");
+    	RemoteUser user = new RemoteUser();
+        user.setId("jcoelho");
+        user.setFirstName("José");
+        user.setLastName("Coelho");
+        user.setEmail("jose.coelho@premium-minds.com");
+        user.setTenantId("TENANT ID");
+        user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
+        user.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
+        user.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
+        user.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
+        
+        return user;
     }
 
     @Override
