@@ -1,7 +1,6 @@
 package com.premiumminds.flowable.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.premiumminds.flowable.rolodex.RolodexApi;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
