@@ -65,6 +65,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
         if (!skipAuthenticationCheck(request)) {
             RemoteToken token = new RemoteToken();
             token.setId("TOKEN_ID");
+            token.setUserId("jcoelho");
             try {
                 RemoteUser user = new RemoteUser();
                 user.setId("jcoelho");
