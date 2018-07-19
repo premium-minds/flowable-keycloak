@@ -117,14 +117,12 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     @Override
     public List<RemoteGroup> findGroupsByNameFilter(String filter) {
         List<RemoteGroup> groups;
-        List<RemoteGroup> roles;
         List<RemoteGroup> matchingResults;
 
         RolodexApi rolodex = new RolodexApi();
         try {
             RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
-            groups = rolodex.getWorkgroups(token);
-            groups.addAll(rolodex.getRoles(token));
+            groups = rolodex.getGroups(token);
 
             // no filter applied, return all groups
             if (filter == null || filter == "") {

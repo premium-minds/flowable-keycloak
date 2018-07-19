@@ -10,7 +10,11 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.NameValuePair;
@@ -145,44 +149,57 @@ public class RolodexApi {
         return employees;
     }
 
-    public List<RemoteGroup> getWorkgroups(OAuth2Token token) throws IOException {
-
-        HttpGet request = getGetRequest(config.getGroupsEndpointURI(), token);
-        CloseableHttpClient client = HttpClients.createDefault();
+    public List<RemoteGroup> getGroups(OAuth2Token token) throws IOException {
         List<RemoteGroup> groups = new ArrayList<>();
+        JsonNode workgroupsJson = getWorkgroups(token);
+        JsonNode rolesJson = getRoles(token);
+        Map<String, String> rolesUidNameMap = new HashMap<>();
 
-        try (CloseableHttpResponse response = client.execute(request)) {
-            if (response.getStatusLine().getStatusCode() == 200) {
-                HttpEntity entity = response.getEntity();
-                String jsonString = EntityUtils.toString(entity);
-                JsonNode node = mapper.readTree(jsonString);
-                for (JsonNode elem : node) {
-                    groups.add(remoteGroupFromJsonNode(elem));
-                }
-            } else {
-                throw new RuntimeException("Got error response from rolodex. Code: " +
-                        response.getStatusLine().getStatusCode());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        for (JsonNode elem : rolesJson) {
+            groups.add(remoteGroupFromJsonNode("R", elem));
+            rolesUidNameMap.put(elem.get("uid").asText(), elem.get("name").asText());
+        }
+
+        for (JsonNode elem : workgroupsJson) {
+            groups.add(remoteGroupFromJsonNode("W", elem));
+            groups.addAll(remoteGroupFromWorkgroupRolePair(elem, rolesUidNameMap));
         }
         return groups;
     }
 
-    public List<RemoteGroup> getRoles(OAuth2Token token) throws IOException {
+    private List<RemoteGroup> remoteGroupFromWorkgroupRolePair(JsonNode workgroupElem,
+            Map<String, String> rolesUidNameMap) {
 
-        HttpGet request = getGetRequest(config.rolesEndpointURI, token);
+        List<RemoteGroup> pairs = new ArrayList<>();
+
+        JsonNode employees = workgroupElem.get("employees");
+        Set<String> employeesRoles = new HashSet<>();
+        for (JsonNode employee : employees) {
+            employeesRoles.add(employee.get("uidRole").asText());
+        }
+
+        for (String roleId : employeesRoles) {
+
+            String workgroupRolePairId = "W" + workgroupElem.get("uid").asText() + ":R" + roleId;
+            String workgroupRolePairName =
+                    workgroupElem.get("name").asText() + " - " + rolesUidNameMap.get(roleId);
+            RemoteGroup group = new RemoteGroup();
+            group.setId(workgroupRolePairId);
+            group.setName(workgroupRolePairName);
+            pairs.add(group);
+        }
+        return pairs;
+    }
+
+    private JsonNode getWorkgroups(OAuth2Token token) throws IOException {
+        HttpGet request = getGetRequest(config.getGroupsEndpointURI(), token);
         CloseableHttpClient client = HttpClients.createDefault();
-        List<RemoteGroup> roles = new ArrayList<>();
 
         try (CloseableHttpResponse response = client.execute(request)) {
             if (response.getStatusLine().getStatusCode() == 200) {
                 HttpEntity entity = response.getEntity();
                 String jsonString = EntityUtils.toString(entity);
-                JsonNode node = mapper.readTree(jsonString);
-                for (JsonNode elem : node) {
-                    roles.add(remoteGroupFromJsonNode(elem));
-                }
+                return mapper.readTree(jsonString);
             } else {
                 throw new RuntimeException("Got error response from rolodex. Code: " +
                         response.getStatusLine().getStatusCode());
@@ -190,7 +207,25 @@ public class RolodexApi {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return roles;
+    }
+
+    public JsonNode getRoles(OAuth2Token token) throws IOException {
+
+        HttpGet request = getGetRequest(config.rolesEndpointURI, token);
+        CloseableHttpClient client = HttpClients.createDefault();
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                return mapper.readTree(jsonString);
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private HttpGet getGetRequest(URI uri, OAuth2Token token) {
@@ -210,9 +245,9 @@ public class RolodexApi {
         return user;
     }
 
-    private RemoteGroup remoteGroupFromJsonNode(JsonNode node) {
+    private RemoteGroup remoteGroupFromJsonNode(String groupType, JsonNode node) {
         RemoteGroup group = new RemoteGroup();
-        group.setId(node.get("uid").asText());
+        group.setId(groupType + node.get("uid").asText());
         group.setName(node.get("name").asText());
         return group;
     }
