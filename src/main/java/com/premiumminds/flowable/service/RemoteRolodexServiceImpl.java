@@ -79,20 +79,25 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     public List<RemoteUser> findUsersByNameFilter(String filter) {
 
         List<RemoteUser> employees;
-        List<RemoteUser> foundEmployees;
+        List<RemoteUser> matchingEmployees;
 
         RolodexApi rolodex = new RolodexApi();
         try {
             RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
             employees = rolodex.getEmployees(token);
-            foundEmployees = new ArrayList<>();
 
+            // no filter applied, return all users
+            if (filter == null || filter == "") {
+                return employees;
+            }
+
+            matchingEmployees = new ArrayList<>();
             for (RemoteUser user : employees) {
                 if (user.getFullName().toLowerCase().contains(filter.toLowerCase())) {
-                    foundEmployees.add(user);
+                    matchingEmployees.add(user);
                 }
             }
-            return foundEmployees;
+            return matchingEmployees;
         } catch (IOException e) {
             LOGGER.error("Unable to retrieve users.");
             return new ArrayList<>(0);
@@ -111,6 +116,31 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public List<RemoteGroup> findGroupsByNameFilter(String filter) {
-        return null;
+        List<RemoteGroup> groups;
+        List<RemoteGroup> roles;
+        List<RemoteGroup> matchingResults;
+
+        RolodexApi rolodex = new RolodexApi();
+        try {
+            RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
+            groups = rolodex.getWorkgroups(token);
+            groups.addAll(rolodex.getRoles(token));
+
+            // no filter applied, return all groups
+            if (filter == null || filter == "") {
+                return groups;
+            }
+
+            matchingResults = new ArrayList<>();
+            for (RemoteGroup group : groups) {
+                if (group.getName().toLowerCase().contains(filter.toLowerCase())) {
+                    matchingResults.add(group);
+                }
+            }
+            return matchingResults;
+        } catch (IOException e) {
+            LOGGER.error("Unable to retrieve groups.");
+            return new ArrayList<>(0);
+        }
     }
 }

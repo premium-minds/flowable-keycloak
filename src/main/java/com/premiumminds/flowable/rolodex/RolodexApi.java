@@ -24,6 +24,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteUser;
 
 public class RolodexApi {
@@ -144,6 +145,54 @@ public class RolodexApi {
         return employees;
     }
 
+    public List<RemoteGroup> getWorkgroups(OAuth2Token token) throws IOException {
+
+        HttpGet request = getGetRequest(config.getGroupsEndpointURI(), token);
+        CloseableHttpClient client = HttpClients.createDefault();
+        List<RemoteGroup> groups = new ArrayList<>();
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                JsonNode node = mapper.readTree(jsonString);
+                for (JsonNode elem : node) {
+                    groups.add(remoteGroupFromJsonNode(elem));
+                }
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return groups;
+    }
+
+    public List<RemoteGroup> getRoles(OAuth2Token token) throws IOException {
+
+        HttpGet request = getGetRequest(config.rolesEndpointURI, token);
+        CloseableHttpClient client = HttpClients.createDefault();
+        List<RemoteGroup> roles = new ArrayList<>();
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                JsonNode node = mapper.readTree(jsonString);
+                for (JsonNode elem : node) {
+                    roles.add(remoteGroupFromJsonNode(elem));
+                }
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return roles;
+    }
+
     private HttpGet getGetRequest(URI uri, OAuth2Token token) {
         HttpGet request = new HttpGet(uri);
         request.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
@@ -159,6 +208,13 @@ public class RolodexApi {
         user.setFullName(node.get("firstName").asText() + " " + node.get("surname").asText());
         user.setId(node.get("uid").asText());
         return user;
+    }
+
+    private RemoteGroup remoteGroupFromJsonNode(JsonNode node) {
+        RemoteGroup group = new RemoteGroup();
+        group.setId(node.get("uid").asText());
+        group.setName(node.get("name").asText());
+        return group;
     }
 
     public static class OAuth2Token {
