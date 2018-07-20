@@ -8,12 +8,15 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -30,10 +33,12 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RolodexApi {
 
-    // private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
 
     private static final String PROVIDER_URL = "http://ci.rolodex.forno.premium-minds.com/api/";
 
@@ -56,6 +61,8 @@ public class RolodexApi {
 
     private final Config config;
 
+    private Optional<OAuth2Token> token;
+
     private final ObjectMapper mapper;
 
     public RolodexApi() {
@@ -71,9 +78,21 @@ public class RolodexApi {
 
         this.mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        this.token = Optional.empty();
     }
 
-    public OAuth2Token getClientCredentialsToken() throws IOException {
+    private OAuth2Token getOauth2Token() throws IOException {
+        if (!token.isPresent() || token.get().isExpired()) {
+            token = Optional.of(getClientCredentialsToken());
+            LOGGER.info("Token not present or expired. Getting new token...");
+        } else {
+            LOGGER.info("Valid token");
+        }
+        return token.get();
+    }
+
+    private OAuth2Token getClientCredentialsToken() throws IOException {
 
         CloseableHttpClient client = HttpClients.createDefault();
         HttpPost request = getClientCredentialsOauth2TokenRequest();
@@ -125,7 +144,9 @@ public class RolodexApi {
         post.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
     }
 
-    public List<RemoteUser> getEmployees(OAuth2Token token) throws IOException {
+    public List<RemoteUser> getEmployees() throws IOException {
+
+        OAuth2Token token = getOauth2Token();
 
         HttpGet request = getGetRequest(config.getUsersEndpointURI(), token);
         CloseableHttpClient client = HttpClients.createDefault();
@@ -149,7 +170,10 @@ public class RolodexApi {
         return employees;
     }
 
-    public List<RemoteGroup> getGroups(OAuth2Token token) throws IOException {
+    public List<RemoteGroup> getGroups() throws IOException {
+
+        OAuth2Token token = getOauth2Token();
+
         List<RemoteGroup> groups = new ArrayList<>();
         JsonNode workgroupsJson = getWorkgroups(token);
         JsonNode rolesJson = getRoles(token);
@@ -209,9 +233,8 @@ public class RolodexApi {
         }
     }
 
-    public JsonNode getRoles(OAuth2Token token) throws IOException {
-
-        HttpGet request = getGetRequest(config.rolesEndpointURI, token);
+    private JsonNode getRoles(OAuth2Token token) throws IOException {
+        HttpGet request = getGetRequest(config.getRolesEndpointURI(), token);
         CloseableHttpClient client = HttpClients.createDefault();
 
         try (CloseableHttpResponse response = client.execute(request)) {
@@ -252,21 +275,29 @@ public class RolodexApi {
         return group;
     }
 
-    public static class OAuth2Token {
+    private static class OAuth2Token {
+
+        private static final long EXPIRATION_SECURITY_GAP_SECONDS = 10;
 
         private final String token;
 
         private final String type;
 
-        private OAuth2Token(String token, String type) {
+        private final Instant expiresAt;
+
+        private OAuth2Token(String token, String type, Instant expiresAt) {
             this.token = token;
             this.type = type;
+            this.expiresAt = expiresAt;
         }
 
         static OAuth2Token fromJsonNode(JsonNode node) {
             final String token = node.get("access_token").asText();
             final String type = node.get("token_type").asText();
-            return new OAuth2Token(token, type);
+            final Long expiresIn = node.get("expires_in").asLong();
+            final Instant expiresAt = Instant.now().plus(expiresIn, ChronoUnit.SECONDS)
+                    .minus(EXPIRATION_SECURITY_GAP_SECONDS, ChronoUnit.SECONDS);
+            return new OAuth2Token(token, type, expiresAt);
         }
 
         public String getToken() {
@@ -276,9 +307,13 @@ public class RolodexApi {
         public String getType() {
             return type;
         }
+
+        public boolean isExpired() {
+            return Instant.now().isAfter(expiresAt);
+        }
     }
 
-    public static class Config {
+    private static class Config {
 
         private final URI tokenEndpointURI;
 

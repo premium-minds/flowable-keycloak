@@ -1,9 +1,14 @@
 package com.premiumminds.flowable.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
@@ -32,12 +37,31 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     protected String adminPassword;
 
+    private RolodexApi rolodex;
+
+    private LoadingCache<String, List<RemoteUser>> usersCache;
+
+    // private LoadingCache<String, RemoteGroup> groupsCache;
+
     public RemoteRolodexServiceImpl(FlowableCommonAppProperties properties) {
         url = properties.determineIdmAppUrl();
         adminUser = properties.getIdmAdmin().getUser();
         Assert.hasText(adminUser, "Admin user must not be empty");
         adminPassword = properties.getIdmAdmin().getPassword();
         Assert.hasText(adminUser, "Admin user password should not be empty");
+        rolodex = new RolodexApi();
+        initUsersCache();
+    }
+
+    private void initUsersCache() {
+        usersCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).recordStats()
+                .build(new CacheLoader<String, List<RemoteUser>>() {
+                    @Override
+                    public List<RemoteUser> load(String userId) throws Exception {
+                        LOGGER.info("load() invoked");
+                        return rolodex.getEmployees();
+                    }
+                });
     }
 
     @Override
@@ -78,29 +102,29 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     public List<RemoteUser> findUsersByNameFilter(String filter) {
 
         List<RemoteUser> employees;
-        List<RemoteUser> matchingEmployees;
+        List<RemoteUser> matchingEmployees = new ArrayList<>();
 
-        RolodexApi rolodex = new RolodexApi();
         try {
-            RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
-            employees = rolodex.getEmployees(token);
-
-            // no filter applied, return all users
+            employees = usersCache.get("");
+            LOGGER.info("Users cache size: " + employees.size());
             if (filter == null || filter == "") {
                 return employees;
             }
 
-            matchingEmployees = new ArrayList<>();
             for (RemoteUser user : employees) {
                 if (user.getFullName().toLowerCase().contains(filter.toLowerCase())) {
                     matchingEmployees.add(user);
                 }
             }
             return matchingEmployees;
-        } catch (IOException e) {
-            LOGGER.error("Unable to retrieve users.");
-            return new ArrayList<>(0);
+
+        } catch (ExecutionException e1) {
+            LOGGER.error("Failed to load users from cache");
+            // TOOD: Get them from rolodex!!!!!
+            e1.printStackTrace();
         }
+        return matchingEmployees;
+
     }
 
     @Override
@@ -118,11 +142,8 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         List<RemoteGroup> groups;
         List<RemoteGroup> matchingResults;
 
-        RolodexApi rolodex = new RolodexApi();
         try {
-            RolodexApi.OAuth2Token token = rolodex.getClientCredentialsToken();
-            groups = rolodex.getGroups(token);
-
+            groups = rolodex.getGroups();
             // no filter applied, return all groups
             if (filter == null || filter == "") {
                 return groups;
