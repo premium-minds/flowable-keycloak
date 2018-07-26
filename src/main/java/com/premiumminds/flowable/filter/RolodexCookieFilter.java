@@ -72,7 +72,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                 user.setFirstName("José");
                 user.setLastName("Coelho");
                 user.setEmail("jose.coelho@premium-minds.com");
-                user.setTenantId("TENANT ID");
+                user.setTenantId("");
                 user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
                 user.getPrivileges().add("Privilege 1");
                 Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();

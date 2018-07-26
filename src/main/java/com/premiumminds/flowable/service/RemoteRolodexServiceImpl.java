@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 
 @Primary
 @Service
@@ -31,12 +30,6 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     @Autowired
     protected ObjectMapper objectMapper;
 
-    protected String url;
-
-    protected String adminUser;
-
-    protected String adminPassword;
-
     private RolodexApi rolodex;
 
     private LoadingCache<String, List<RemoteUser>> usersCache;
@@ -44,11 +37,6 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     private LoadingCache<String, List<RemoteGroup>> groupsCache;
 
     public RemoteRolodexServiceImpl(FlowableCommonAppProperties properties) {
-        url = properties.determineIdmAppUrl();
-        adminUser = properties.getIdmAdmin().getUser();
-        Assert.hasText(adminUser, "Admin user must not be empty");
-        adminPassword = properties.getIdmAdmin().getPassword();
-        Assert.hasText(adminUser, "Admin user password should not be empty");
         rolodex = new RolodexApi();
         initUsersCache();
         initGroupsCache();
@@ -121,7 +109,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         user.setFirstName("José");
         user.setLastName("Coelho");
         user.setEmail("jose.coelho@premium-minds.com");
-        user.setTenantId("TENANT ID");
+        user.setTenantId("");
         user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
         user.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
         user.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
@@ -142,7 +130,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         user.setFirstName("José");
         user.setLastName("Coelho");
         user.setEmail("jose.coelho@premium-minds.com");
-        user.setTenantId("TENANT ID");
+        user.setTenantId("");
         user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
         user.getPrivileges().add("Privilege 1");
         return user;
@@ -152,6 +140,10 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     public List<RemoteUser> findUsersByNameFilter(String filter) {
 
         try {
+            if (filter == null) {
+                // avoid annoying bug from flowable when no filter is sent
+                return usersCache.get("");
+            }
             return usersCache.get(filter.toLowerCase());
 
         } catch (ExecutionException e1) {
