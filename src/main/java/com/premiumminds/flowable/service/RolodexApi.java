@@ -134,7 +134,6 @@ public class RolodexApi {
     }
 
     private void generateClientCredentialsRequestHeaders(HttpPost post) {
-
         post.addHeader(HttpHeaders.AUTHORIZATION,
                 "Basic " + new String(Base64.getEncoder()
                         .encode((config.getClientId() + ":" + config.getClientSecret())
@@ -203,7 +202,6 @@ public class RolodexApi {
         }
 
         for (String roleId : employeesRoles) {
-
             String workgroupRolePairId = "W" + workgroupElem.get("uid").asText() + ":R" + roleId;
             String workgroupRolePairName =
                     workgroupElem.get("name").asText() + " - " + rolesUidNameMap.get(roleId);

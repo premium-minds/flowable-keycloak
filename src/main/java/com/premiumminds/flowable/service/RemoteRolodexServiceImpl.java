@@ -54,14 +54,35 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     }
 
     private void initUsersCache() {
-        usersCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).recordStats()
+        usersCache = CacheBuilder.newBuilder().expireAfterWrite(5, TimeUnit.MINUTES).recordStats()
                 .build(new CacheLoader<String, List<RemoteUser>>() {
                     @Override
                     public List<RemoteUser> load(String userId) throws Exception {
                         LOGGER.info("load() invoked");
-                        return rolodex.getEmployees();
+                        return getEmployeesByFilter(userId);
                     }
                 });
+    }
+
+    private List<RemoteUser> getEmployeesByFilter(String userId)
+            throws IOException, ExecutionException {
+        if (userId == "") {
+            // Load all from database
+            LOGGER.info("Loading all users from rolodex");
+            return rolodex.getEmployees();
+        } else {
+            // Apply filter to the list
+            LOGGER.info("Using filter '" + userId + "' to select some users.");
+            List<RemoteUser> matchingEmployees = new ArrayList<>();
+            List<RemoteUser> employees = usersCache.get("");
+
+            for (RemoteUser user : employees) {
+                if (user.getFullName().toLowerCase().contains(userId.toLowerCase())) {
+                    matchingEmployees.add(user);
+                }
+            }
+            return matchingEmployees;
+        }
     }
 
     @Override
@@ -101,30 +122,18 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     @Override
     public List<RemoteUser> findUsersByNameFilter(String filter) {
 
-        List<RemoteUser> employees;
-        List<RemoteUser> matchingEmployees = new ArrayList<>();
-
         try {
-            employees = usersCache.get("");
-            LOGGER.info("Users cache size: " + employees.size());
-            if (filter == null || filter == "") {
-                return employees;
-            }
-
-            for (RemoteUser user : employees) {
-                if (user.getFullName().toLowerCase().contains(filter.toLowerCase())) {
-                    matchingEmployees.add(user);
-                }
-            }
-            return matchingEmployees;
+            return usersCache.get(filter.toLowerCase());
 
         } catch (ExecutionException e1) {
-            LOGGER.error("Failed to load users from cache");
-            // TOOD: Get them from rolodex!!!!!
-            e1.printStackTrace();
+            LOGGER.error("Failed to load users from cache. Loading directly from rolodex.");
+            try {
+                return rolodex.getEmployees();
+            } catch (IOException e) {
+                LOGGER.error("Users could not be loaded from rolodex.");
+            }
         }
-        return matchingEmployees;
-
+        return new ArrayList<>();
     }
 
     @Override
