@@ -32,7 +32,6 @@ public class RolodexCookieFilterRegistrationBean extends FilterRegistrationBean 
 
             rolodexCookieFilter.setFilterCallback(filterCallback);
             rolodexCookieFilter.setRequiredPrivileges(requiredPrivileges);
-            rolodexCookieFilter.initCaches();
             setFilter(rolodexCookieFilter);
         }
     }

@@ -3,7 +3,6 @@ package com.premiumminds.flowable.filter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import javax.annotation.PostConstruct;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -35,27 +34,12 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
     protected final FlowableCommonAppProperties properties;
 
-    protected String idmAppUrl;
-
-    protected String redirectUrlOnAuthSuccess;
-
     protected Collection<String> requiredPrivileges;
 
     public RolodexCookieFilter(RemoteIdmService remoteIdmService,
             FlowableCommonAppProperties properties) {
         this.remoteIdmService = remoteIdmService;
         this.properties = properties;
-    }
-
-    @PostConstruct
-    protected void initCaches() {
-        initIdmAppRedirectUrl();
-    }
-
-    protected void initIdmAppRedirectUrl() {
-        idmAppUrl = properties.determineIdmAppRedirectUrl();
-
-        redirectUrlOnAuthSuccess = properties.getRedirectOnAuthSuccess();
     }
 
     @Override
@@ -96,7 +80,6 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
             if (filterCallback != null) {
                 filterCallback.onValidTokenFound(request, response, token);
             }
-
         }
 
         try {
@@ -131,18 +114,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     }
 
     protected void redirectToLogin(HttpServletRequest request, HttpServletResponse response) {
-        try {
-            String baseRedirectUrl = idmAppUrl + "#/login?redirectOnAuthSuccess=true&redirectUrl=";
-            if (redirectUrlOnAuthSuccess != null) {
-                response.sendRedirect(baseRedirectUrl + redirectUrlOnAuthSuccess);
-
-            } else {
-                response.sendRedirect(baseRedirectUrl + request.getRequestURL());
-            }
-
-        } catch (IOException e) {
-            LOGGER.warn("Could not redirect to {}", idmAppUrl, e);
-        }
+        throw new UnsupportedOperationException("Not supported.");
     }
 
     protected void sendNotPermitted(HttpServletRequest request, HttpServletResponse response) {
