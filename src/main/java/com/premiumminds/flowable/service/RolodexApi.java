@@ -85,9 +85,6 @@ public class RolodexApi {
     private OAuth2Token getOauth2Token() throws IOException {
         if (!token.isPresent() || token.get().isExpired()) {
             token = Optional.of(getClientCredentialsToken());
-            LOGGER.info("Token not present or expired. Getting new token...");
-        } else {
-            LOGGER.info("Valid token");
         }
         return token.get();
     }
