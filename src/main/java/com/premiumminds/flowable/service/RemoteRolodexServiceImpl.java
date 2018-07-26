@@ -41,7 +41,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     private LoadingCache<String, List<RemoteUser>> usersCache;
 
-    // private LoadingCache<String, RemoteGroup> groupsCache;
+    private LoadingCache<String, List<RemoteGroup>> groupsCache;
 
     public RemoteRolodexServiceImpl(FlowableCommonAppProperties properties) {
         url = properties.determineIdmAppUrl();
@@ -51,37 +51,72 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         Assert.hasText(adminUser, "Admin user password should not be empty");
         rolodex = new RolodexApi();
         initUsersCache();
+        initGroupsCache();
     }
 
     private void initUsersCache() {
         usersCache = CacheBuilder.newBuilder().expireAfterWrite(5, TimeUnit.MINUTES).recordStats()
                 .build(new CacheLoader<String, List<RemoteUser>>() {
                     @Override
-                    public List<RemoteUser> load(String userId) throws Exception {
-                        LOGGER.info("load() invoked");
-                        return getEmployeesByFilter(userId);
+                    public List<RemoteUser> load(String userName) throws Exception {
+                        LOGGER.info("users load() invoked");
+                        return getEmployeesByFilter(userName);
                     }
                 });
     }
 
-    private List<RemoteUser> getEmployeesByFilter(String userId)
+    private void initGroupsCache() {
+        groupsCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).recordStats()
+                .build(new CacheLoader<String, List<RemoteGroup>>() {
+
+                    @Override
+                    public List<RemoteGroup> load(String groupName) throws Exception {
+                        LOGGER.info("groups load() invoked");
+                        return getGroupsByFilter(groupName);
+                    }
+
+                });
+    }
+
+    private List<RemoteUser> getEmployeesByFilter(String userName)
             throws IOException, ExecutionException {
-        if (userId == "") {
+        if (userName == "") {
             // Load all from database
             LOGGER.info("Loading all users from rolodex");
             return rolodex.getEmployees();
         } else {
             // Apply filter to the list
-            LOGGER.info("Using filter '" + userId + "' to select some users.");
+            LOGGER.info("Using filter '" + userName + "' to select some users.");
             List<RemoteUser> matchingEmployees = new ArrayList<>();
             List<RemoteUser> employees = usersCache.get("");
 
             for (RemoteUser user : employees) {
-                if (user.getFullName().toLowerCase().contains(userId.toLowerCase())) {
+                if (user.getFullName().toLowerCase().contains(userName.toLowerCase())) {
                     matchingEmployees.add(user);
                 }
             }
             return matchingEmployees;
+        }
+    }
+
+    private List<RemoteGroup> getGroupsByFilter(String groupName)
+            throws IOException, ExecutionException {
+        if (groupName == "") {
+            // Load all from database
+            LOGGER.info("Loading all users from rolodex");
+            return rolodex.getGroups();
+        } else {
+            // Apply filter to the list
+            LOGGER.info("Using filter '" + groupName + "' to select some groups.");
+            List<RemoteGroup> matchingGroups = new ArrayList<>();
+            List<RemoteGroup> groups = groupsCache.get("");
+
+            for (RemoteGroup group : groups) {
+                if (group.getName().toLowerCase().contains(groupName.toLowerCase())) {
+                    matchingGroups.add(group);
+                }
+            }
+            return matchingGroups;
         }
     }
 
@@ -148,26 +183,22 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public List<RemoteGroup> findGroupsByNameFilter(String filter) {
-        List<RemoteGroup> groups;
-        List<RemoteGroup> matchingResults;
 
         try {
-            groups = rolodex.getGroups();
-            // no filter applied, return all groups
-            if (filter == null || filter == "") {
-                return groups;
+            if (filter == null) {
+                // avoid annoying bug from flowable when no filter is sent
+                return groupsCache.get("");
             }
+            return groupsCache.get(filter.toLowerCase());
 
-            matchingResults = new ArrayList<>();
-            for (RemoteGroup group : groups) {
-                if (group.getName().toLowerCase().contains(filter.toLowerCase())) {
-                    matchingResults.add(group);
-                }
+        } catch (ExecutionException e1) {
+            LOGGER.error("Failed to load groups from cache. Loading directly from rolodex.");
+            try {
+                return rolodex.getGroups();
+            } catch (IOException e) {
+                LOGGER.error("Groups could not be loaded from rolodex.");
             }
-            return matchingResults;
-        } catch (IOException e) {
-            LOGGER.error("Unable to retrieve groups.");
-            return new ArrayList<>(0);
         }
+        return new ArrayList<>();
     }
 }
