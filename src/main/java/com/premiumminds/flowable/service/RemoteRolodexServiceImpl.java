@@ -59,19 +59,17 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
                 .build(new CacheLoader<String, List<RemoteUser>>() {
                     @Override
                     public List<RemoteUser> load(String userName) throws Exception {
-                        LOGGER.info("users load() invoked");
                         return getEmployeesByFilter(userName);
                     }
                 });
     }
 
     private void initGroupsCache() {
-        groupsCache = CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).recordStats()
+        groupsCache = CacheBuilder.newBuilder().expireAfterWrite(5, TimeUnit.MINUTES).recordStats()
                 .build(new CacheLoader<String, List<RemoteGroup>>() {
 
                     @Override
                     public List<RemoteGroup> load(String groupName) throws Exception {
-                        LOGGER.info("groups load() invoked");
                         return getGroupsByFilter(groupName);
                     }
 
@@ -82,11 +80,9 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
             throws IOException, ExecutionException {
         if (userName == "") {
             // Load all from database
-            LOGGER.info("Loading all users from rolodex");
             return rolodex.getEmployees();
         } else {
             // Apply filter to the list
-            LOGGER.info("Using filter '" + userName + "' to select some users.");
             List<RemoteUser> matchingEmployees = new ArrayList<>();
             List<RemoteUser> employees = usersCache.get("");
 
@@ -103,11 +99,9 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
             throws IOException, ExecutionException {
         if (groupName == "") {
             // Load all from database
-            LOGGER.info("Loading all users from rolodex");
             return rolodex.getGroups();
         } else {
             // Apply filter to the list
-            LOGGER.info("Using filter '" + groupName + "' to select some groups.");
             List<RemoteGroup> matchingGroups = new ArrayList<>();
             List<RemoteGroup> groups = groupsCache.get("");
 
