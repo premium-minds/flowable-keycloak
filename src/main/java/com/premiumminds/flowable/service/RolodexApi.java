@@ -3,6 +3,8 @@ package com.premiumminds.flowable.service;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -40,26 +42,7 @@ public class RolodexApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
 
-    private static final String PROVIDER_URL = "http://ci.rolodex.forno.premium-minds.com/api/";
-
-    private static final String TOKEN_ENDPOINT = "oauth2/token";
-
-    private static final String EMPLOYEES_ENDPOINT = "employees";
-
-    private static final String GROUPS_ENDPOINT = "workgroups";
-
-    private static final String ROLES_ENDPOINT = "workgroups/roles";
-
-    private static final String CLIENT_ID = "e9bcb917-2bd2-412e-b131-ef33039cdf5a";
-
-    private static final String CLIENT_SECRET = "r1xQ3/a$UD4yhqzAH[";
-
-    private static final String SCOPES = "rolodex.employees/read rolodex.workgroups/read";
-
-    private static final String REDIRECT_URI =
-            "http://localhost:8080/ui/callback?client_name=RolodexClient";
-
-    private final Config config;
+    private final OAuth2Config config;
 
     private Optional<OAuth2Token> token;
 
@@ -67,19 +50,26 @@ public class RolodexApi {
 
     public RolodexApi() {
 
-        final URI tokenEndpointURI = URI.create(PROVIDER_URL + TOKEN_ENDPOINT);
-        final URI employeesEndpointURI = URI.create(PROVIDER_URL + EMPLOYEES_ENDPOINT);
-        final URI groupsEndpointURI = URI.create(PROVIDER_URL + GROUPS_ENDPOINT);
-        final URI rolesEndpointURI = URI.create(PROVIDER_URL + ROLES_ENDPOINT);
-        final URI redirectUri = URI.create(REDIRECT_URI);
+        Config conf = ConfigFactory.load();
+        String providerUrl = conf.getString("oauth2.provider.uri");
 
-        this.config = new Config(tokenEndpointURI, employeesEndpointURI, groupsEndpointURI,
-                rolesEndpointURI, CLIENT_ID, CLIENT_SECRET, SCOPES, redirectUri);
+        final URI tokenEndpointURI = URI.create(providerUrl + conf.getString("endpoints.token"));
+        final URI employeesEndpointURI =
+                URI.create(providerUrl + conf.getString("endpoints.employees"));
+        final URI groupsEndpointURI = URI.create(providerUrl + conf.getString("endpoints.groups"));
+        final URI rolesEndpointURI = URI.create(providerUrl + conf.getString("endpoints.roles"));
+        final URI redirectUri = URI.create(conf.getString("oauth2.provider.redirect_uri"));
+
+        this.config = new OAuth2Config(tokenEndpointURI, employeesEndpointURI, groupsEndpointURI,
+                rolesEndpointURI, conf.getString("oauth2.provider.client_id"),
+                conf.getString("oauth2.provider.client_secret"),
+                conf.getString("oauth2.provider.scopes"), redirectUri);
 
         this.mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
         this.token = Optional.empty();
+
     }
 
     private OAuth2Token getOauth2Token() throws IOException {
@@ -308,7 +298,7 @@ public class RolodexApi {
         }
     }
 
-    private static class Config {
+    public static class OAuth2Config {
 
         private final URI tokenEndpointURI;
 
@@ -326,7 +316,7 @@ public class RolodexApi {
 
         private final URI redirectURI;
 
-        public Config(URI tokenEndpointURI, URI usersEndpointURI, URI groupsEndpointURI,
+        public OAuth2Config(URI tokenEndpointURI, URI usersEndpointURI, URI groupsEndpointURI,
                 URI rolesEndpointURI, String clientId, String clientSecret, String scope,
                 URI redirectURI) {
 
