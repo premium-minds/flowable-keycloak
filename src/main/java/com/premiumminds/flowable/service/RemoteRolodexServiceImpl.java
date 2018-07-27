@@ -165,7 +165,35 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public List<RemoteUser> findUsersByGroup(String groupId) {
-        return null;
+
+        List<RemoteUser> candidateUsers = new ArrayList<>();
+        try {
+            List<RemoteUser> users = usersCache.get("");
+            for (RemoteUser user : users) {
+                for (RemoteGroup group : user.getGroups()) {
+                    if (group.getId() == groupId) {
+                        candidateUsers.add(user);
+                        break;
+                    }
+                }
+            }
+        } catch (ExecutionException e) {
+            LOGGER.warn("Failed to load data from cache.");
+            try {
+                List<RemoteUser> users = rolodex.getEmployees();
+                for (RemoteUser user : users) {
+                    for (RemoteGroup group : user.getGroups()) {
+                        if (group.getId() == groupId) {
+                            candidateUsers.add(user);
+                            break;
+                        }
+                    }
+                }
+            } catch (IOException e1) {
+                LOGGER.error("Failed to load data from rolodex.");
+            }
+        }
+        return candidateUsers;
     }
 
     @Override
