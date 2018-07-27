@@ -122,7 +122,11 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteToken getToken(String tokenValue) {
-        return null;
+        RemoteToken token = new RemoteToken();
+        token.setId("REMOTE_TOKEN_ID");
+        token.setUserId("REMOTE_TOKEN_USER_ID");
+        token.setValue(tokenValue);
+        return token;
     }
 
     @Override
