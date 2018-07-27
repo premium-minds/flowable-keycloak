@@ -6,7 +6,9 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.flowable.ui.common.model.RemoteGroup;
@@ -164,7 +166,25 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteGroup getGroup(String groupId) {
-        return null;
+
+        Map<String, RemoteGroup> groupsMap = new HashMap<>();
+        try {
+            List<RemoteGroup> groups = groupsCache.get("");
+            for (RemoteGroup g : groups) {
+                groupsMap.put(g.getId(), g);
+            }
+        } catch (ExecutionException e) {
+            LOGGER.warn("Failed to load data from cache.");
+            try {
+                List<RemoteGroup> groups = rolodex.getGroups();
+                for (RemoteGroup g : groups) {
+                    groupsMap.put(g.getId(), g);
+                }
+            } catch (IOException e1) {
+                LOGGER.error("Failed to load data from rolodex.");
+            }
+        }
+        return groupsMap.get(groupId);
     }
 
     @Override

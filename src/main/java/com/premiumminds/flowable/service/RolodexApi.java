@@ -231,6 +231,25 @@ public class RolodexApi {
         }
     }
 
+    public JsonNode getWorkgroup(String groupId) throws IOException {
+        OAuth2Token token = getOauth2Token();
+        HttpGet request = getGetRequest(config.getGroupEndpointURI(groupId), token);
+        CloseableHttpClient client = HttpClients.createDefault();
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                return mapper.readTree(jsonString);
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private JsonNode getRoles(OAuth2Token token) throws IOException {
         HttpGet request = getGetRequest(config.getRolesEndpointURI(), token);
         CloseableHttpClient client = HttpClients.createDefault();
@@ -388,6 +407,10 @@ public class RolodexApi {
 
         public URI getRedirectURI() {
             return redirectURI;
+        }
+
+        public URI getGroupEndpointURI(String groupId) {
+            return URI.create(groupsEndpointURI.toString() + "/" + groupId);
         }
     }
 }
