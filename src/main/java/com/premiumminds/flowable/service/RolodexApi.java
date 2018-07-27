@@ -133,10 +133,23 @@ public class RolodexApi {
     public List<RemoteUser> getEmployees() throws IOException {
 
         OAuth2Token token = getOauth2Token();
+        Map<String, String> workgroups = new HashMap<>();
+        Map<String, String> roles = new HashMap<>();
 
         HttpGet request = getGetRequest(config.getUsersEndpointURI(), token);
         CloseableHttpClient client = HttpClients.createDefault();
         List<RemoteUser> employees = new ArrayList<>();
+
+        JsonNode workgroupsJson = getWorkgroups(token);
+        JsonNode rolesJson = getRoles(token);
+
+        for (JsonNode elem : workgroupsJson) {
+            workgroups.put(elem.get("uid").asText(), elem.get("name").asText());
+        }
+
+        for (JsonNode elem : rolesJson) {
+            roles.put(elem.get("uid").asText(), elem.get("name").asText());
+        }
 
         try (CloseableHttpResponse response = client.execute(request)) {
             if (response.getStatusLine().getStatusCode() == 200) {
@@ -144,7 +157,7 @@ public class RolodexApi {
                 String jsonString = EntityUtils.toString(entity);
                 JsonNode node = mapper.readTree(jsonString);
                 for (JsonNode elem : node) {
-                    employees.add(remoteUserFromJsonNode(elem));
+                    employees.add(remoteUserFromJsonNode(elem, workgroups, roles));
                 }
             } else {
                 throw new RuntimeException("Got error response from rolodex. Code: " +
@@ -243,13 +256,28 @@ public class RolodexApi {
         return request;
     }
 
-    private RemoteUser remoteUserFromJsonNode(JsonNode node) {
+    private RemoteUser remoteUserFromJsonNode(JsonNode node, Map<String, String> workgroups,
+            Map<String, String> roles) {
         RemoteUser user = new RemoteUser();
         user.setEmail(node.get("email").asText());
         user.setFirstName(node.get("firstName").asText());
         user.setLastName(node.get("surname").asText());
         user.setFullName(node.get("firstName").asText() + " " + node.get("surname").asText());
         user.setId(node.get("uid").asText());
+
+        JsonNode employeeWorkgroups = node.get("workgroups");
+        for (JsonNode workgroup : employeeWorkgroups) {
+
+            String workgroupId = workgroup.get("uidWorkgroup").asText();
+            String roleId = workgroup.get("uidRole").asText();
+            String workgroupName = workgroups.get(workgroupId);
+            String roleName = roles.get(roleId);
+
+            user.getGroups().add(new RemoteGroup("W" + workgroupId, workgroupName));
+            user.getGroups().add(new RemoteGroup("R" + roleId, roleName));
+            user.getGroups().add(new RemoteGroup("W" + workgroupId + ":R" + roleId,
+                    workgroupName + " - " + roleName));
+        }
         return user;
     }
 
