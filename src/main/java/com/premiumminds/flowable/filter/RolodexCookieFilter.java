@@ -15,8 +15,6 @@ import org.flowable.ui.common.properties.FlowableCommonAppProperties;
 import org.flowable.ui.common.security.DefaultPrivileges;
 import org.flowable.ui.common.security.FlowableAppUser;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.RememberMeAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -25,8 +23,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class RolodexCookieFilter extends OncePerRequestFilter {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(RolodexCookieFilter.class);
 
     protected FlowableCookieFilterCallback filterCallback;
 
@@ -50,33 +46,28 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
             RemoteToken token = new RemoteToken();
             token.setId("TOKEN_ID");
             token.setUserId("jcoelho");
-            try {
-                RemoteUser user = new RemoteUser();
-                user.setId("jcoelho");
-                user.setFirstName("José");
-                user.setLastName("Coelho");
-                user.setEmail("jose.coelho@premium-minds.com");
-                user.setTenantId("");
-                user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
-                user.getPrivileges().add("Privilege 1");
-                Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
-                authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_MODELER));
-                authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
 
-                FlowableAppUser appUser = new FlowableAppUser(user, "userId", authorities);
+            RemoteUser user = new RemoteUser();
+            user.setId("jcoelho");
+            user.setFirstName("José");
+            user.setLastName("Coelho");
+            user.setEmail("jose.coelho@premium-minds.com");
+            user.setTenantId("");
+            user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
+            user.getPrivileges().add("Privilege 1");
+            Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_MODELER));
+            authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
 
-                if (!validateRequiredPriviliges(request, response, appUser)) {
-                    redirectOrSendNotPermitted(request, response);
-                    return; // no need to execute any other filters
-                }
-                SecurityContextHolder.getContext()
-                        .setAuthentication(new RememberMeAuthenticationToken(token.getId(), appUser,
-                                appUser.getAuthorities()));
+            FlowableAppUser appUser = new FlowableAppUser(user, "userId", authorities);
 
-            } catch (Exception e) {
-                LOGGER.trace("Could not set necessary threadlocals for token", e);
+            if (!validateRequiredPriviliges(request, response, appUser)) {
                 redirectOrSendNotPermitted(request, response);
+                return; // no need to execute any other filters
             }
+            SecurityContextHolder.getContext().setAuthentication(new RememberMeAuthenticationToken(
+                    token.getId(), appUser, appUser.getAuthorities()));
+
             if (filterCallback != null) {
                 filterCallback.onValidTokenFound(request, response, token);
             }
