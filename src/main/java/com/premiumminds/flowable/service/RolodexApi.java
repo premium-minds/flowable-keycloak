@@ -3,11 +3,9 @@ package com.premiumminds.flowable.service;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.premiumminds.flowable.conf.RolodexProperties;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -42,45 +40,28 @@ public class RolodexApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
 
-    private final OAuth2Config config;
-
     private Optional<OAuth2Token> token;
 
     private final ObjectMapper mapper;
 
-    public RolodexApi() {
+    private RolodexProperties rolodexProperties;
 
-        Config conf = ConfigFactory.load();
-        String providerUrl = conf.getString("oauth2.provider.uri");
-
-        final URI tokenEndpointURI = URI.create(providerUrl + conf.getString("endpoints.token"));
-        final URI employeesEndpointURI =
-                URI.create(providerUrl + conf.getString("endpoints.employees"));
-        final URI groupsEndpointURI = URI.create(providerUrl + conf.getString("endpoints.groups"));
-        final URI rolesEndpointURI = URI.create(providerUrl + conf.getString("endpoints.roles"));
-        final URI redirectUri = URI.create(conf.getString("oauth2.provider.redirect_uri"));
-
-        this.config = new OAuth2Config(tokenEndpointURI, employeesEndpointURI, groupsEndpointURI,
-                rolesEndpointURI, conf.getString("oauth2.provider.client_id"),
-                conf.getString("oauth2.provider.client_secret"),
-                conf.getString("oauth2.provider.scopes"), redirectUri);
-
-        this.mapper = new ObjectMapper()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        this.token = Optional.empty();
-
+    public RolodexApi(RolodexProperties rolodexProperties) {
+        mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                false);
+        token = Optional.empty();
+        this.rolodexProperties = rolodexProperties;
     }
 
     private OAuth2Token getOauth2Token() throws IOException {
         if (!token.isPresent() || token.get().isExpired()) {
+            LOGGER.info("OAuth2Token not present or expired, getting a new one.");
             token = Optional.of(getClientCredentialsToken());
         }
         return token.get();
     }
 
     private OAuth2Token getClientCredentialsToken() throws IOException {
-
         CloseableHttpClient client = HttpClients.createDefault();
         HttpPost request = getClientCredentialsOauth2TokenRequest();
 
@@ -88,7 +69,6 @@ public class RolodexApi {
             if (response.getStatusLine().getStatusCode() == 200) {
                 HttpEntity entity = response.getEntity();
                 String jsonString = EntityUtils.toString(entity);
-
                 JsonNode node = mapper.readTree(jsonString);
                 return OAuth2Token.fromJsonNode(node);
             } else {
@@ -102,7 +82,8 @@ public class RolodexApi {
 
     private HttpPost getClientCredentialsOauth2TokenRequest() {
         try {
-            URIBuilder uriBuilder = new URIBuilder(config.getTokenEndpointURI());
+            URIBuilder uriBuilder =
+                    new URIBuilder(rolodexProperties.getEndpoints().getTokenEndpointUri());
             HttpPost post = new HttpPost(uriBuilder.build());
             post.setEntity(new UrlEncodedFormEntity(generateClientCredentialsRequestParams()));
             generateClientCredentialsRequestHeaders(post);
@@ -115,41 +96,39 @@ public class RolodexApi {
     private List<NameValuePair> generateClientCredentialsRequestParams() {
         List<NameValuePair> rparams = new ArrayList<>(3);
         rparams.add(new BasicNameValuePair("grant_type", "client_credentials"));
-        rparams.add(new BasicNameValuePair("scope", config.getScope()));
-        rparams.add(new BasicNameValuePair("redirect_uri", config.getRedirectURI().toString()));
+        rparams.add(new BasicNameValuePair("scope",
+                rolodexProperties.getAppAuthCredentials().getScope()));
+
+        rparams.add(new BasicNameValuePair("redirect_uri",
+                rolodexProperties.getAppAuthCredentials().getRedirectUri()));
         return rparams;
     }
 
     private void generateClientCredentialsRequestHeaders(HttpPost post) {
         post.addHeader(HttpHeaders.AUTHORIZATION,
                 "Basic " + new String(Base64.getEncoder()
-                        .encode((config.getClientId() + ":" + config.getClientSecret())
-                                .getBytes(Charset.forName("UTF-8")))));
+                        .encode((rolodexProperties.getAppAuthCredentials().getClientId() + ":" +
+                                rolodexProperties.getAppAuthCredentials().getClientSecret())
+                                        .getBytes(Charset.forName("UTF-8")))));
         post.addHeader(HttpHeaders.CONTENT_TYPE,
                 ContentType.APPLICATION_FORM_URLENCODED.getMimeType());
         post.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
     }
 
     public List<RemoteUser> getEmployees() throws IOException {
-
+        LOGGER.info("RolodexApi > getEmployees()");
         OAuth2Token token = getOauth2Token();
         Map<String, String> workgroups = new HashMap<>();
         Map<String, String> roles = new HashMap<>();
 
-        HttpGet request = getGetRequest(config.getUsersEndpointURI(), token);
+        HttpGet request =
+                getGetRequest(rolodexProperties.getEndpoints().getEmployeesEndpointUri(), token);
         CloseableHttpClient client = HttpClients.createDefault();
+
         List<RemoteUser> employees = new ArrayList<>();
 
-        JsonNode workgroupsJson = getWorkgroups(token);
-        JsonNode rolesJson = getRoles(token);
-
-        for (JsonNode elem : workgroupsJson) {
-            workgroups.put(elem.get("uid").asText(), elem.get("name").asText());
-        }
-
-        for (JsonNode elem : rolesJson) {
-            roles.put(elem.get("uid").asText(), elem.get("name").asText());
-        }
+        // Load workgroups and roles maps only once for all users
+        loadWorkgroupsRolesMaps(token, workgroups, roles);
 
         try (CloseableHttpResponse response = client.execute(request)) {
             if (response.getStatusLine().getStatusCode() == 200) {
@@ -169,8 +148,22 @@ public class RolodexApi {
         return employees;
     }
 
-    public List<RemoteGroup> getGroups() throws IOException {
+    private void loadWorkgroupsRolesMaps(OAuth2Token token, Map<String, String> workgroups,
+            Map<String, String> roles) throws IOException {
+        JsonNode workgroupsJson = getWorkgroups(token);
+        JsonNode rolesJson = getRoles(token);
 
+        for (JsonNode elem : workgroupsJson) {
+            workgroups.put(elem.get("uid").asText(), elem.get("name").asText());
+        }
+
+        for (JsonNode elem : rolesJson) {
+            roles.put(elem.get("uid").asText(), elem.get("name").asText());
+        }
+    }
+
+    public List<RemoteGroup> getGroups() throws IOException {
+        LOGGER.info("RolodexApi > getGroups()");
         OAuth2Token token = getOauth2Token();
 
         List<RemoteGroup> groups = new ArrayList<>();
@@ -214,26 +207,8 @@ public class RolodexApi {
     }
 
     private JsonNode getWorkgroups(OAuth2Token token) throws IOException {
-        HttpGet request = getGetRequest(config.getGroupsEndpointURI(), token);
-        CloseableHttpClient client = HttpClients.createDefault();
-
-        try (CloseableHttpResponse response = client.execute(request)) {
-            if (response.getStatusLine().getStatusCode() == 200) {
-                HttpEntity entity = response.getEntity();
-                String jsonString = EntityUtils.toString(entity);
-                return mapper.readTree(jsonString);
-            } else {
-                throw new RuntimeException("Got error response from rolodex. Code: " +
-                        response.getStatusLine().getStatusCode());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public JsonNode getWorkgroup(String groupId) throws IOException {
-        OAuth2Token token = getOauth2Token();
-        HttpGet request = getGetRequest(config.getGroupEndpointURI(groupId), token);
+        HttpGet request =
+                getGetRequest(rolodexProperties.getEndpoints().getWorkgroupsEndpointUri(), token);
         CloseableHttpClient client = HttpClients.createDefault();
 
         try (CloseableHttpResponse response = client.execute(request)) {
@@ -251,7 +226,8 @@ public class RolodexApi {
     }
 
     private JsonNode getRoles(OAuth2Token token) throws IOException {
-        HttpGet request = getGetRequest(config.getRolesEndpointURI(), token);
+        HttpGet request =
+                getGetRequest(rolodexProperties.getEndpoints().getRolesEndpointUri(), token);
         CloseableHttpClient client = HttpClients.createDefault();
 
         try (CloseableHttpResponse response = client.execute(request)) {
@@ -268,7 +244,7 @@ public class RolodexApi {
         }
     }
 
-    private HttpGet getGetRequest(URI uri, OAuth2Token token) {
+    private HttpGet getGetRequest(String uri, OAuth2Token token) {
         HttpGet request = new HttpGet(uri);
         request.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
         request.addHeader(HttpHeaders.AUTHORIZATION, token.getType() + " " + token.getToken());
@@ -342,75 +318,6 @@ public class RolodexApi {
 
         public boolean isExpired() {
             return Instant.now().isAfter(expiresAt);
-        }
-    }
-
-    public static class OAuth2Config {
-
-        private final URI tokenEndpointURI;
-
-        private final URI usersEndpointURI;
-
-        private final URI groupsEndpointURI;
-
-        private final URI rolesEndpointURI;
-
-        private final String clientId;
-
-        private final String clientSecret;
-
-        private final String scope;
-
-        private final URI redirectURI;
-
-        public OAuth2Config(URI tokenEndpointURI, URI usersEndpointURI, URI groupsEndpointURI,
-                URI rolesEndpointURI, String clientId, String clientSecret, String scope,
-                URI redirectURI) {
-
-            this.tokenEndpointURI = tokenEndpointURI;
-            this.usersEndpointURI = usersEndpointURI;
-            this.groupsEndpointURI = groupsEndpointURI;
-            this.rolesEndpointURI = rolesEndpointURI;
-            this.clientId = clientId;
-            this.clientSecret = clientSecret;
-            this.scope = scope;
-            this.redirectURI = redirectURI;
-        }
-
-        public URI getTokenEndpointURI() {
-            return tokenEndpointURI;
-        }
-
-        public URI getUsersEndpointURI() {
-            return usersEndpointURI;
-        }
-
-        public URI getGroupsEndpointURI() {
-            return groupsEndpointURI;
-        }
-
-        public URI getRolesEndpointURI() {
-            return rolesEndpointURI;
-        }
-
-        public String getClientId() {
-            return clientId;
-        }
-
-        public String getClientSecret() {
-            return clientSecret;
-        }
-
-        public String getScope() {
-            return scope;
-        }
-
-        public URI getRedirectURI() {
-            return redirectURI;
-        }
-
-        public URI getGroupEndpointURI(String groupId) {
-            return URI.create(groupsEndpointURI.toString() + "/" + groupId);
         }
     }
 }
