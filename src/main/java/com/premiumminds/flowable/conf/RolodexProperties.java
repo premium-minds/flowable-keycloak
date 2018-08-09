@@ -7,6 +7,8 @@ public class RolodexProperties {
 
     private AppAuthCredentials appAuthCredentials;
 
+    private UserAuthCredentials userAuthCredentials;
+
     private Endpoints endpoints;
 
     public AppAuthCredentials getAppAuthCredentials() {
@@ -15,6 +17,14 @@ public class RolodexProperties {
 
     public void setAppAuthCredentials(AppAuthCredentials appAuthCredentials) {
         this.appAuthCredentials = appAuthCredentials;
+    }
+
+    public UserAuthCredentials getUserAuthCredentials() {
+        return userAuthCredentials;
+    }
+
+    public void setUserAuthCredentials(UserAuthCredentials userAuthCredentials) {
+        this.userAuthCredentials = userAuthCredentials;
     }
 
     public Endpoints getEndpoints() {
@@ -67,6 +77,48 @@ public class RolodexProperties {
         }
     }
 
+    public static class UserAuthCredentials {
+        private String clientId;
+
+        private String clientSecret;
+
+        private String scope;
+
+        private String redirectUri;
+
+        public String getClientId() {
+            return clientId;
+        }
+
+        public void setClientId(String clientId) {
+            this.clientId = clientId;
+        }
+
+        public String getClientSecret() {
+            return clientSecret;
+        }
+
+        public void setClientSecret(String clientSecret) {
+            this.clientSecret = clientSecret;
+        }
+
+        public String getScope() {
+            return scope;
+        }
+
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        public String getRedirectUri() {
+            return redirectUri;
+        }
+
+        public void setRedirectUri(String redirectUri) {
+            this.redirectUri = redirectUri;
+        }
+    }
+
     public static class Endpoints {
         private String baseUri;
 
@@ -77,6 +129,12 @@ public class RolodexProperties {
         private String workgroupsEndpointUri;
 
         private String rolesEndpointUri;
+
+        private String authorizeEndpointUri;
+
+        private String employeesMeEndpointUri;
+
+        private String logoutEndpointUri;
 
         public String getBaseUri() {
             return baseUri;
@@ -116,6 +174,30 @@ public class RolodexProperties {
 
         public void setRolesEndpointUri(String rolesEndpointUri) {
             this.rolesEndpointUri = rolesEndpointUri;
+        }
+
+        public String getAuthorizeEndpointUri() {
+            return authorizeEndpointUri;
+        }
+
+        public void setAuthorizeEndpointUri(String authorizeEndpointUri) {
+            this.authorizeEndpointUri = authorizeEndpointUri;
+        }
+
+        public String getEmployeesMeEndpointUri() {
+            return employeesMeEndpointUri;
+        }
+
+        public void setEmployeesMeEndpointUri(String employeesMeEndpointUri) {
+            this.employeesMeEndpointUri = employeesMeEndpointUri;
+        }
+
+        public String getLogoutEndpointUri() {
+            return logoutEndpointUri;
+        }
+
+        public void setLogoutEndpointUri(String logoutEndpointUri) {
+            this.logoutEndpointUri = logoutEndpointUri;
         }
 
     }
