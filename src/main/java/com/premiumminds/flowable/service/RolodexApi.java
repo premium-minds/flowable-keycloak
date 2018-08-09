@@ -18,6 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.NameValuePair;
@@ -40,25 +43,36 @@ public class RolodexApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RolodexApi.class);
 
-    private Optional<OAuth2Token> token;
+    private Optional<OAuth2Token> token; // only used to client_credentials
 
     private final ObjectMapper mapper;
 
     private RolodexProperties rolodexProperties;
 
-    public RolodexApi(RolodexProperties rolodexProperties) {
+    private String authType;
+
+    public RolodexApi(RolodexProperties rolodexProperties, String authType) {
         mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
                 false);
         token = Optional.empty();
         this.rolodexProperties = rolodexProperties;
+        if (AuthorizationType.validAuthType(authType)) {
+            this.authType = authType;
+        } else {
+            throw new NotImplementedException("Auth type '" + authType + "' not implemented.");
+        }
     }
 
     private OAuth2Token getOauth2Token() throws IOException {
-        if (!token.isPresent() || token.get().isExpired()) {
-            LOGGER.info("OAuth2Token not present or expired, getting a new one.");
-            token = Optional.of(getClientCredentialsToken());
+        if (authType.equals(AuthorizationType.CLIENT_CREDENTIALS)) {
+            if (!token.isPresent() || token.get().isExpired()) {
+                LOGGER.info("OAuth2Token not present or expired, getting a new one.");
+                token = Optional.of(getClientCredentialsToken());
+            }
+            return token.get();
+        } else {
+            throw new RuntimeException("Bad authorization type ['" + authType + "']");
         }
-        return token.get();
     }
 
     private OAuth2Token getClientCredentialsToken() throws IOException {
@@ -95,12 +109,11 @@ public class RolodexApi {
 
     private List<NameValuePair> generateClientCredentialsRequestParams() {
         List<NameValuePair> rparams = new ArrayList<>(3);
-        rparams.add(new BasicNameValuePair("grant_type", "client_credentials"));
         rparams.add(new BasicNameValuePair("scope",
                 rolodexProperties.getAppAuthCredentials().getScope()));
-
         rparams.add(new BasicNameValuePair("redirect_uri",
                 rolodexProperties.getAppAuthCredentials().getRedirectUri()));
+        rparams.add(new BasicNameValuePair("grant_type", "client_credentials"));
         return rparams;
     }
 
@@ -115,8 +128,64 @@ public class RolodexApi {
         post.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
     }
 
+    private OAuth2Token getAuthorizationCodeToken(String authCode) throws IOException {
+        CloseableHttpClient client = HttpClients.createDefault();
+        HttpPost request = getAuthorizationCodeOauth2TokenRequest(authCode);
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                JsonNode node = mapper.readTree(jsonString);
+                return OAuth2Token.fromJsonNode(node);
+            } else {
+                LOGGER.error(EntityUtils.toString(response.getEntity()));
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private HttpPost getAuthorizationCodeOauth2TokenRequest(String authCode) {
+        try {
+            URIBuilder uriBuilder =
+                    new URIBuilder(rolodexProperties.getEndpoints().getTokenEndpointUri());
+            HttpPost post = new HttpPost(uriBuilder.build());
+            post.setEntity(
+                    new UrlEncodedFormEntity(generateAuthorizationCodeRequestParams(authCode)));
+            generateAuthorizationCodeRequestHeaders(post);
+            return post;
+        } catch (UnsupportedEncodingException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<NameValuePair> generateAuthorizationCodeRequestParams(String authCode) {
+        List<NameValuePair> rparams = new ArrayList<>(4);
+        rparams.add(new BasicNameValuePair("scope",
+                rolodexProperties.getUserAuthCredentials().getScope()));
+        rparams.add(new BasicNameValuePair("redirect_uri",
+                rolodexProperties.getUserAuthCredentials().getRedirectUri()));
+        rparams.add(new BasicNameValuePair("grant_type", "authorization_code"));
+        rparams.add(new BasicNameValuePair("code", authCode));
+        return rparams;
+    }
+
+    private void generateAuthorizationCodeRequestHeaders(HttpPost post) {
+        post.addHeader(HttpHeaders.AUTHORIZATION,
+                "Basic " + new String(Base64.getEncoder()
+                        .encode((rolodexProperties.getUserAuthCredentials().getClientId() + ":" +
+                                rolodexProperties.getUserAuthCredentials().getClientSecret())
+                                        .getBytes(Charset.forName("UTF-8")))));
+        post.addHeader(HttpHeaders.CONTENT_TYPE,
+                ContentType.APPLICATION_FORM_URLENCODED.getMimeType());
+        post.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
+    }
+
     public List<RemoteUser> getEmployees() throws IOException {
-        LOGGER.info("RolodexApi > getEmployees()");
+        LOGGER.info("getEmployees()");
         OAuth2Token token = getOauth2Token();
         Map<String, String> workgroups = new HashMap<>();
         Map<String, String> roles = new HashMap<>();
@@ -148,6 +217,33 @@ public class RolodexApi {
         return employees;
     }
 
+    public RemoteUser getMe(String tokenValue) throws IOException {
+        LOGGER.info("getMe()");
+        Map<String, String> workgroups = new HashMap<>();
+        Map<String, String> roles = new HashMap<>();
+        OAuth2Token token = new OAuth2Token(tokenValue, "Bearer");
+        HttpGet request =
+                getGetRequest(rolodexProperties.getEndpoints().getEmployeesMeEndpointUri(), token);
+        CloseableHttpClient client = HttpClients.createDefault();
+
+        // Load workgroups and roles maps only once for all users
+        loadWorkgroupsRolesMaps(token, workgroups, roles);
+
+        try (CloseableHttpResponse response = client.execute(request)) {
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                String jsonString = EntityUtils.toString(entity);
+                JsonNode node = mapper.readTree(jsonString);
+                return remoteUserFromJsonNode(node, workgroups, roles);
+            } else {
+                throw new RuntimeException("Got error response from rolodex. Code: " +
+                        response.getStatusLine().getStatusCode());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void loadWorkgroupsRolesMaps(OAuth2Token token, Map<String, String> workgroups,
             Map<String, String> roles) throws IOException {
         JsonNode workgroupsJson = getWorkgroups(token);
@@ -163,7 +259,7 @@ public class RolodexApi {
     }
 
     public List<RemoteGroup> getGroups() throws IOException {
-        LOGGER.info("RolodexApi > getGroups()");
+        LOGGER.info("getGroups()");
         OAuth2Token token = getOauth2Token();
 
         List<RemoteGroup> groups = new ArrayList<>();
@@ -283,15 +379,48 @@ public class RolodexApi {
         return group;
     }
 
+    public String getRedirectUrl() {
+        if (authType.equals(AuthorizationType.AUTHORIZATION_CODE)) {
+            return rolodexProperties.getUserAuthCredentials().getRedirectUri();
+        } else if (authType.equals(AuthorizationType.CLIENT_CREDENTIALS)) {
+            return rolodexProperties.getAppAuthCredentials().getRedirectUri();
+        } else {
+            // Actually will never happen, authType is checked on constructor
+            return null;
+        }
+    }
+
+    public void redirectToLogin(HttpServletResponse response) {
+        String redirectUrl = rolodexProperties.getEndpoints().getLogoutEndpointUri();
+        String redirectParams = "?response_type=code&client_id=" +
+                rolodexProperties.getUserAuthCredentials().getClientId() + "&redirect_uri=" +
+                rolodexProperties.getUserAuthCredentials().getRedirectUri() + "&scope=" +
+                rolodexProperties.getUserAuthCredentials().getScope();
+        try {
+            response.sendRedirect(redirectUrl + redirectParams);
+        } catch (IOException e1) {
+            throw new RuntimeException("Error when redirecting to rolodex.");
+        }
+    }
+
+    public String getOauth2TokenFromAuthCode(HttpServletRequest request) throws IOException {
+        return getAuthorizationCodeToken(request.getParameter("code")).getToken();
+    }
+
     private static class OAuth2Token {
 
         private static final long EXPIRATION_SECURITY_GAP_SECONDS = 10;
 
-        private final String token;
+        private String token;
 
-        private final String type;
+        private String type;
 
-        private final Instant expiresAt;
+        private Instant expiresAt;
+
+        private OAuth2Token(String token, String type) {
+            this.token = token;
+            this.type = type;
+        }
 
         private OAuth2Token(String token, String type, Instant expiresAt) {
             this.token = token;
@@ -320,4 +449,15 @@ public class RolodexApi {
             return Instant.now().isAfter(expiresAt);
         }
     }
+
+    public static class AuthorizationType {
+        public static final String CLIENT_CREDENTIALS = "client_credentials";
+
+        public static final String AUTHORIZATION_CODE = "authorization_code";
+
+        public static boolean validAuthType(String authType) {
+            return authType.equals(CLIENT_CREDENTIALS) || authType.equals(AUTHORIZATION_CODE);
+        }
+    }
+
 }
