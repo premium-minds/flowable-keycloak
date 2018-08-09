@@ -2,6 +2,7 @@ package com.premiumminds.flowable.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.premiumminds.flowable.conf.RolodexProperties;
+import com.premiumminds.flowable.service.RolodexApi.AuthorizationType;
 import com.premiumminds.flowable.utils.EmptyCacheException;
 import com.premiumminds.flowable.utils.ExpiredCacheException;
 import com.premiumminds.flowable.utils.SingleElementCache;
@@ -38,7 +39,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     public RemoteRolodexServiceImpl(FlowableCommonAppProperties properties,
             RolodexProperties rolodexProperties) {
-        rolodex = new RolodexApi(rolodexProperties);
+        rolodex = new RolodexApi(rolodexProperties, AuthorizationType.CLIENT_CREDENTIALS);
         initUsersCache();
         initGroupsCache();
     }
@@ -53,7 +54,8 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteUser authenticateUser(String username, String password) {
-        LOGGER.info("authenticateUser()");
+        // TODO
+        LOGGER.info("TODO: authenticateUser()");
         RemoteUser user = new RemoteUser();
         user.setId("jcoelho");
         user.setFirstName("José");
@@ -70,7 +72,8 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteToken getToken(String tokenValue) {
-        LOGGER.info("getToken()");
+        // TODO
+        LOGGER.info("TODO: getToken() Note: Change to get a token from a code?");
         RemoteToken token = new RemoteToken();
         token.setId("REMOTE_TOKEN_ID");
         token.setUserId("REMOTE_TOKEN_USER_ID");
@@ -81,15 +84,26 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
     @Override
     public RemoteUser getUser(String userId) {
         LOGGER.info("getUser()");
-        RemoteUser user = new RemoteUser();
-        user.setId("jcoelho");
-        user.setFirstName("José");
-        user.setLastName("Coelho");
-        user.setEmail("jose.coelho@premium-minds.com");
-        user.setTenantId("");
-        user.getGroups().add(new RemoteGroup("GROUP1_ID", "Group 1 Name"));
-        user.getPrivileges().add("Privilege 1");
-        return user;
+        List<RemoteUser> users;
+        try {
+            return usersCache.getElement(userId);
+        } catch (NotFoundException e) {
+            LOGGER.info("User not found in cache, retrieve users from rolodex.");
+            users = populateUsersCache();
+        } catch (ExpiredCacheException e) {
+            LOGGER.info("Cache expired, retrieve users from rolodex.");
+            users = populateUsersCache();
+        } catch (EmptyCacheException e) {
+            LOGGER.info("Cache empty, retrieve users from rolodex.");
+            users = populateUsersCache();
+        }
+
+        for (RemoteUser user : users) {
+            if (user.getId().equals(userId)) {
+                return user;
+            }
+        }
+        throw new NotFoundException("User with id '" + userId + "' not found.");
     }
 
     @Override
@@ -148,6 +162,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     @Override
     public RemoteGroup getGroup(String groupId) {
+
         LOGGER.info("getGroup()");
         List<RemoteGroup> groups;
         try {
@@ -162,11 +177,14 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
             LOGGER.info("Group not found in cache, retrieve groups from rolodex.");
             groups = populateGroupsCache();
         }
+        // TODO: Handle composite (W:R) ids
+        // TODO: remove W or R in start of id || check if composite id
         for (RemoteGroup group : groups) {
             if (group.getId().equals(groupId)) {
                 return group;
             }
         }
+
         // No group with id found
         throw new NotFoundException("Group with id '" + groupId + "' not found.");
     }
