@@ -1,5 +1,6 @@
 package com.premiumminds.flowable.conf;
 
+import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "rolodex")
@@ -144,56 +145,56 @@ public class RolodexProperties {
             this.baseUri = baseUri;
         }
 
-        public String getTokenEndpointUri() {
-            return tokenEndpointUri;
+        public URI getTokenEndpointUri() {
+            return URI.create(tokenEndpointUri);
         }
 
         public void setTokenEndpointUri(String tokenEndpointUri) {
             this.tokenEndpointUri = tokenEndpointUri;
         }
 
-        public String getEmployeesEndpointUri() {
-            return employeesEndpointUri;
+        public URI getEmployeesEndpointUri() {
+            return URI.create(employeesEndpointUri);
         }
 
         public void setEmployeesEndpointUri(String employeesEndpointUri) {
             this.employeesEndpointUri = employeesEndpointUri;
         }
 
-        public String getWorkgroupsEndpointUri() {
-            return workgroupsEndpointUri;
+        public URI getWorkgroupsEndpointUri() {
+            return URI.create(workgroupsEndpointUri);
         }
 
         public void setWorkgroupsEndpointUri(String workgroupsEndpointUri) {
             this.workgroupsEndpointUri = workgroupsEndpointUri;
         }
 
-        public String getRolesEndpointUri() {
-            return rolesEndpointUri;
+        public URI getRolesEndpointUri() {
+            return URI.create(rolesEndpointUri);
         }
 
         public void setRolesEndpointUri(String rolesEndpointUri) {
             this.rolesEndpointUri = rolesEndpointUri;
         }
 
-        public String getAuthorizeEndpointUri() {
-            return authorizeEndpointUri;
+        public URI getAuthorizeEndpointUri() {
+            return URI.create(authorizeEndpointUri);
         }
 
         public void setAuthorizeEndpointUri(String authorizeEndpointUri) {
             this.authorizeEndpointUri = authorizeEndpointUri;
         }
 
-        public String getEmployeesMeEndpointUri() {
-            return employeesMeEndpointUri;
+        public URI getEmployeesMeEndpointUri() {
+            return URI.create(employeesMeEndpointUri);
         }
 
         public void setEmployeesMeEndpointUri(String employeesMeEndpointUri) {
             this.employeesMeEndpointUri = employeesMeEndpointUri;
         }
 
-        public String getLogoutEndpointUri() {
-            return logoutEndpointUri;
+        public URI getLogoutEndpointUri() {
+            return URI.create(logoutEndpointUri);
         }
 
         public void setLogoutEndpointUri(String logoutEndpointUri) {

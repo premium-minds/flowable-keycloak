@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.premiumminds.flowable.conf.RolodexProperties;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URISyntaxException;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,7 +28,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -96,13 +95,11 @@ public class RolodexApi {
 
     private HttpPost getClientCredentialsOauth2TokenRequest() {
         try {
-            URIBuilder uriBuilder =
-                    new URIBuilder(rolodexProperties.getEndpoints().getTokenEndpointUri());
-            HttpPost post = new HttpPost(uriBuilder.build());
+            HttpPost post = new HttpPost(rolodexProperties.getEndpoints().getTokenEndpointUri());
             post.setEntity(new UrlEncodedFormEntity(generateClientCredentialsRequestParams()));
             generateClientCredentialsRequestHeaders(post);
             return post;
-        } catch (UnsupportedEncodingException | URISyntaxException e) {
+        } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
     }
@@ -150,14 +147,12 @@ public class RolodexApi {
 
     private HttpPost getAuthorizationCodeOauth2TokenRequest(String authCode) {
         try {
-            URIBuilder uriBuilder =
-                    new URIBuilder(rolodexProperties.getEndpoints().getTokenEndpointUri());
-            HttpPost post = new HttpPost(uriBuilder.build());
+            HttpPost post = new HttpPost(rolodexProperties.getEndpoints().getTokenEndpointUri());
             post.setEntity(
                     new UrlEncodedFormEntity(generateAuthorizationCodeRequestParams(authCode)));
             generateAuthorizationCodeRequestHeaders(post);
             return post;
-        } catch (UnsupportedEncodingException | URISyntaxException e) {
+        } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
     }
@@ -340,7 +335,7 @@ public class RolodexApi {
         }
     }
 
-    private HttpGet getGetRequest(String uri, OAuth2Token token) {
+    private HttpGet getGetRequest(URI uri, OAuth2Token token) {
         HttpGet request = new HttpGet(uri);
         request.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
         request.addHeader(HttpHeaders.AUTHORIZATION, token.getType() + " " + token.getToken());
@@ -391,11 +386,12 @@ public class RolodexApi {
     }
 
     public void redirectToLogin(HttpServletResponse response) {
-        String redirectUrl = rolodexProperties.getEndpoints().getLogoutEndpointUri();
+        String redirectUrl = rolodexProperties.getEndpoints().getLogoutEndpointUri().toString();
         String redirectParams = "?response_type=code&client_id=" +
                 rolodexProperties.getUserAuthCredentials().getClientId() + "&redirect_uri=" +
                 rolodexProperties.getUserAuthCredentials().getRedirectUri() + "&scope=" +
                 rolodexProperties.getUserAuthCredentials().getScope();
+
         try {
             response.sendRedirect(redirectUrl + redirectParams);
         } catch (IOException e1) {
