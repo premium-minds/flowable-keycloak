@@ -191,7 +191,11 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
         RemoteToken token = tokenFromUser(loggedUser, oauthTokenValue);
         updateCaches(appUser, token);
         addRolodexRememberCookie(token.getId(), response);
-        response.sendRedirect("http://localhost:8888/flowable-modeler");
+        if (properties.getRedirectOnAuthSuccess() == null) {
+            response.sendRedirect(request.getContextPath());
+        } else {
+            response.sendRedirect(properties.getRedirectOnAuthSuccess());
+        }
     }
 
     protected RemoteUser getLoggedUser(String oauthTokenValue) throws IOException {
