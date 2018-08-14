@@ -7,6 +7,7 @@ import com.premiumminds.flowable.conf.RolodexProperties;
 import com.premiumminds.flowable.service.RolodexApi;
 import com.premiumminds.flowable.service.RolodexApi.AuthorizationType;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -26,6 +27,7 @@ import org.flowable.ui.common.properties.FlowableCommonAppProperties;
 import org.flowable.ui.common.security.CookieConstants;
 import org.flowable.ui.common.security.DefaultPrivileges;
 import org.flowable.ui.common.security.FlowableAppUser;
+import org.flowable.ui.common.service.exception.NotFoundException;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,11 +60,18 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
     protected LoadingCache<String, RemoteToken> tokenCache;
 
+    protected String adminUser;
+
+    protected String adminPassword;
+
     public RolodexCookieFilter(RemoteIdmService remoteIdmService,
             FlowableCommonAppProperties properties, RolodexProperties rolodexProperties) {
         this.remoteIdmService = remoteIdmService;
         this.properties = properties;
         rolodex = new RolodexApi(rolodexProperties, AuthorizationType.AUTHORIZATION_CODE);
+
+        adminUser = properties.getIdmAdmin().getUser();
+        adminPassword = properties.getIdmAdmin().getPassword();
     }
 
     @PostConstruct
@@ -79,7 +88,6 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
                     @Override
                     public FlowableAppUser load(String userId) throws Exception {
-                        LOGGER.info("user cache load invoked.");
                         RemoteUser user = remoteIdmService.getUser(userId);
                         Collection<GrantedAuthority> grantedAuthorities = new ArrayList<>();
                         for (String privilege : user.getPrivileges()) {
@@ -100,7 +108,6 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
                     @Override
                     public RemoteToken load(String tokenId) throws Exception {
-                        LOGGER.info("token cache load invoked.");
                         // must never reach here directly.
                         return null;
                     }
@@ -117,38 +124,105 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
         }
 
         if (!skipAuthenticationCheck(request)) {
-            RemoteToken token = getValidToken(request, response);
-            if (token != null) {
-                try {
-                    FlowableAppUser appUser = userCache.get(token.getUserId());
-                    if (!validateRequiredPriviliges(request, response, appUser)) {
-                        redirectOrSendNotPermitted(request, response,
-                                appUser.getUserObject().getId());
-                        return; // no need to execute any other filters
-                    }
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(new RememberMeAuthenticationToken(token.getId(),
-                                    appUser, appUser.getAuthorities()));
+            if (checkImpersonationHeaders(request)) {
+                LOGGER.info("Request with both user impersionation headers.");
+                if (checkValidAuthHeaderCredentials(request)) {
 
-                } catch (ExecutionException e) {
-                    LOGGER.trace("Could not set necessary threadlocals for token", e);
-                    redirectOrSendNotPermitted(request, response, token.getUserId());
-                }
-                if (filterCallback != null) {
-                    filterCallback.onValidTokenFound(request, response, token);
+                    RemoteUser user = getUserFromImpersionationHeader(request);
+                    if (user != null) {
+                        FlowableAppUser appUser = appUserFromRemoteUser(user);
+                        if (!validateRequiredPriviliges(request, response, appUser)) {
+                            redirectOrSendNotPermitted(request, response,
+                                    appUser.getUserObject().getId());
+                            return; // no need to execute any other filters
+                        }
+                        SecurityContextHolder.getContext()
+                                .setAuthentication(new RememberMeAuthenticationToken("RUNTIME-USER",
+                                        appUser, appUser.getAuthorities()));
+
+                        if (filterCallback != null) {
+                            RemoteToken token = new RemoteToken();
+                            token.setUserId(user.getId());
+                            filterCallback.onValidTokenFound(request, response, token);
+                        }
+                    } else {
+                        LOGGER.info("User not found.");
+                        sendNotPermitted(request, response);
+                    }
+                } else {
+                    LOGGER.info("Unauthorized.");
+                    sendNotPermitted(request, response);
+                    return;
                 }
             } else {
-                LOGGER.info("No valid token found.");
-                redirectOrSendNotPermitted(request, response, null);
+                RemoteToken token = getValidToken(request, response);
+                if (token != null) {
+                    try {
+                        FlowableAppUser appUser = userCache.get(token.getUserId());
+                        if (!validateRequiredPriviliges(request, response, appUser)) {
+                            redirectOrSendNotPermitted(request, response,
+                                    appUser.getUserObject().getId());
+                            return; // no need to execute any other filters
+                        }
+                        SecurityContextHolder.getContext()
+                                .setAuthentication(new RememberMeAuthenticationToken(token.getId(),
+                                        appUser, appUser.getAuthorities()));
+
+                    } catch (ExecutionException e) {
+                        LOGGER.trace("Could not set necessary threadlocals for token", e);
+                        redirectOrSendNotPermitted(request, response, token.getUserId());
+                    }
+                    if (filterCallback != null) {
+                        filterCallback.onValidTokenFound(request, response, token);
+                    }
+                } else {
+                    LOGGER.info("No valid token found.");
+                    redirectOrSendNotPermitted(request, response, null);
+                }
             }
         }
-
         try {
             filterChain.doFilter(request, response);
         } finally {
             if (filterCallback != null) {
                 filterCallback.onFilterCleanup(request, response);
             }
+        }
+    }
+
+    private boolean checkImpersonationHeaders(HttpServletRequest request) {
+
+        if (request.getHeader("Authorization") != null &&
+                request.getHeader("User-Impersionation-Uid") != null) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean checkValidAuthHeaderCredentials(HttpServletRequest request) {
+
+        String authorization = request.getHeader("Authorization");
+
+        if (authorization.startsWith("Basic ")) {
+            String auth = authorization.substring("Basic".length()).trim();
+            String authorizationPlainText =
+                    new String(Base64.getDecoder().decode(auth), Charset.forName("UTF-8"));
+
+            String[] credentials = authorizationPlainText.split(":", 2);
+
+            if (credentials[0].equals(adminUser) && credentials[1].equals(adminPassword)) {
+                return true;
+            }
+
+        }
+        return false;
+    }
+
+    private RemoteUser getUserFromImpersionationHeader(HttpServletRequest request) {
+        try {
+            return remoteIdmService.getUser(request.getHeader("User-Impersionation-Uid"));
+        } catch (NotFoundException e) {
+            return null;
         }
     }
 
@@ -184,7 +258,6 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
     protected void rolodexAuthenticationCallbackHandler(HttpServletRequest request,
             HttpServletResponse response) throws IOException {
-        LOGGER.info("Rolodex Authentication Callback");
         String oauthTokenValue = rolodex.getOauth2TokenFromAuthCode(request);
         RemoteUser loggedUser = getLoggedUser(oauthTokenValue);
         FlowableAppUser appUser = appUserFromRemoteUser(loggedUser);
@@ -208,7 +281,11 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     protected FlowableAppUser appUserFromRemoteUser(RemoteUser user) {
         Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_MODELER));
-        // authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
+        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
+        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_REST_API));
+        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_ADMIN));
+        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_IDM));
+
         FlowableAppUser appUser = new FlowableAppUser(user, user.getId(), authorities);
         return appUser;
     }

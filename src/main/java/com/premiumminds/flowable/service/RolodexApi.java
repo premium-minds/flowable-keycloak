@@ -65,7 +65,6 @@ public class RolodexApi {
     private OAuth2Token getOauth2Token() throws IOException {
         if (authType.equals(AuthorizationType.CLIENT_CREDENTIALS)) {
             if (!token.isPresent() || token.get().isExpired()) {
-                LOGGER.info("OAuth2Token not present or expired, getting a new one.");
                 token = Optional.of(getClientCredentialsToken());
             }
             return token.get();
@@ -180,7 +179,6 @@ public class RolodexApi {
     }
 
     public List<RemoteUser> getEmployees() throws IOException {
-        LOGGER.info("getEmployees()");
         OAuth2Token token = getOauth2Token();
         Map<String, String> workgroups = new HashMap<>();
         Map<String, String> roles = new HashMap<>();
@@ -213,7 +211,6 @@ public class RolodexApi {
     }
 
     public RemoteUser getMe(String tokenValue) throws IOException {
-        LOGGER.info("getMe()");
         Map<String, String> workgroups = new HashMap<>();
         Map<String, String> roles = new HashMap<>();
         OAuth2Token token = new OAuth2Token(tokenValue, "Bearer");
@@ -254,7 +251,6 @@ public class RolodexApi {
     }
 
     public List<RemoteGroup> getGroups() throws IOException {
-        LOGGER.info("getGroups()");
         OAuth2Token token = getOauth2Token();
 
         List<RemoteGroup> groups = new ArrayList<>();
