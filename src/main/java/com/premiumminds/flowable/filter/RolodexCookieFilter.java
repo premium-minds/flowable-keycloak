@@ -205,13 +205,17 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
         if (authorization.startsWith("Basic ")) {
             String auth = authorization.substring("Basic".length()).trim();
-            String authorizationPlainText =
-                    new String(Base64.getDecoder().decode(auth), Charset.forName("UTF-8"));
 
-            String[] credentials = authorizationPlainText.split(":", 2);
-
-            if (credentials[0].equals(adminUser) && credentials[1].equals(adminPassword)) {
-                return true;
+            try {
+                String authorizationPlainText =
+                        new String(Base64.getDecoder().decode(auth), Charset.forName("UTF-8"));
+                String[] credentials = authorizationPlainText.split(":", 2);
+                if (credentials[0].equals(adminUser) && credentials[1].equals(adminPassword)) {
+                    return true;
+                }
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("Bad format on Authorization header.");
+                return false;
             }
 
         }
