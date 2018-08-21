@@ -1,20 +1,31 @@
 package com.premiumminds.flowable.conf;
 
+import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "rolodex")
 public class RolodexProperties {
 
-    private AppAuthCredentials appAuthCredentials;
+    private AppOauthCredentials appOauthCredentials;
+
+    private UserOauthCredentials userOauthCredentials;
 
     private Endpoints endpoints;
 
-    public AppAuthCredentials getAppAuthCredentials() {
-        return appAuthCredentials;
+    public AppOauthCredentials getAppAuthCredentials() {
+        return appOauthCredentials;
     }
 
-    public void setAppAuthCredentials(AppAuthCredentials appAuthCredentials) {
-        this.appAuthCredentials = appAuthCredentials;
+    public void setAppAuthCredentials(AppOauthCredentials appAuthCredentials) {
+        this.appOauthCredentials = appAuthCredentials;
+    }
+
+    public UserOauthCredentials getUserAuthCredentials() {
+        return userOauthCredentials;
+    }
+
+    public void setUserAuthCredentials(UserOauthCredentials userAuthCredentials) {
+        this.userOauthCredentials = userAuthCredentials;
     }
 
     public Endpoints getEndpoints() {
@@ -25,7 +36,49 @@ public class RolodexProperties {
         this.endpoints = endpoints;
     }
 
-    public static class AppAuthCredentials {
+    public static class AppOauthCredentials {
+        private String clientId;
+
+        private String clientSecret;
+
+        private String scope;
+
+        private String redirectUri;
+
+        public String getClientId() {
+            return clientId;
+        }
+
+        public void setClientId(String clientId) {
+            this.clientId = clientId;
+        }
+
+        public String getClientSecret() {
+            return clientSecret;
+        }
+
+        public void setClientSecret(String clientSecret) {
+            this.clientSecret = clientSecret;
+        }
+
+        public String getScope() {
+            return scope;
+        }
+
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        public String getRedirectUri() {
+            return redirectUri;
+        }
+
+        public void setRedirectUri(String redirectUri) {
+            this.redirectUri = redirectUri;
+        }
+    }
+
+    public static class UserOauthCredentials {
         private String clientId;
 
         private String clientSecret;
@@ -78,6 +131,12 @@ public class RolodexProperties {
 
         private String rolesEndpointUri;
 
+        private String authorizeEndpointUri;
+
+        private String employeesMeEndpointUri;
+
+        private String logoutEndpointUri;
+
         public String getBaseUri() {
             return baseUri;
         }
@@ -86,36 +145,60 @@ public class RolodexProperties {
             this.baseUri = baseUri;
         }
 
-        public String getTokenEndpointUri() {
-            return tokenEndpointUri;
+        public URI getTokenEndpointUri() {
+            return URI.create(tokenEndpointUri);
         }
 
         public void setTokenEndpointUri(String tokenEndpointUri) {
             this.tokenEndpointUri = tokenEndpointUri;
         }
 
-        public String getEmployeesEndpointUri() {
-            return employeesEndpointUri;
+        public URI getEmployeesEndpointUri() {
+            return URI.create(employeesEndpointUri);
         }
 
         public void setEmployeesEndpointUri(String employeesEndpointUri) {
             this.employeesEndpointUri = employeesEndpointUri;
         }
 
-        public String getWorkgroupsEndpointUri() {
-            return workgroupsEndpointUri;
+        public URI getWorkgroupsEndpointUri() {
+            return URI.create(workgroupsEndpointUri);
         }
 
         public void setWorkgroupsEndpointUri(String workgroupsEndpointUri) {
             this.workgroupsEndpointUri = workgroupsEndpointUri;
         }
 
-        public String getRolesEndpointUri() {
-            return rolesEndpointUri;
+        public URI getRolesEndpointUri() {
+            return URI.create(rolesEndpointUri);
         }
 
         public void setRolesEndpointUri(String rolesEndpointUri) {
             this.rolesEndpointUri = rolesEndpointUri;
+        }
+
+        public URI getAuthorizeEndpointUri() {
+            return URI.create(authorizeEndpointUri);
+        }
+
+        public void setAuthorizeEndpointUri(String authorizeEndpointUri) {
+            this.authorizeEndpointUri = authorizeEndpointUri;
+        }
+
+        public URI getEmployeesMeEndpointUri() {
+            return URI.create(employeesMeEndpointUri);
+        }
+
+        public void setEmployeesMeEndpointUri(String employeesMeEndpointUri) {
+            this.employeesMeEndpointUri = employeesMeEndpointUri;
+        }
+
+        public URI getLogoutEndpointUri() {
+            return URI.create(logoutEndpointUri);
+        }
+
+        public void setLogoutEndpointUri(String logoutEndpointUri) {
+            this.logoutEndpointUri = logoutEndpointUri;
         }
 
     }
