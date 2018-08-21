@@ -6,26 +6,26 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "rolodex")
 public class RolodexProperties {
 
-    private AppAuthCredentials appAuthCredentials;
+    private AppOauthCredentials appOauthCredentials;
 
-    private UserAuthCredentials userAuthCredentials;
+    private UserOauthCredentials userOauthCredentials;
 
     private Endpoints endpoints;
 
-    public AppAuthCredentials getAppAuthCredentials() {
-        return appAuthCredentials;
+    public AppOauthCredentials getAppAuthCredentials() {
+        return appOauthCredentials;
     }
 
-    public void setAppAuthCredentials(AppAuthCredentials appAuthCredentials) {
-        this.appAuthCredentials = appAuthCredentials;
+    public void setAppAuthCredentials(AppOauthCredentials appAuthCredentials) {
+        this.appOauthCredentials = appAuthCredentials;
     }
 
-    public UserAuthCredentials getUserAuthCredentials() {
-        return userAuthCredentials;
+    public UserOauthCredentials getUserAuthCredentials() {
+        return userOauthCredentials;
     }
 
-    public void setUserAuthCredentials(UserAuthCredentials userAuthCredentials) {
-        this.userAuthCredentials = userAuthCredentials;
+    public void setUserAuthCredentials(UserOauthCredentials userAuthCredentials) {
+        this.userOauthCredentials = userAuthCredentials;
     }
 
     public Endpoints getEndpoints() {
@@ -36,7 +36,7 @@ public class RolodexProperties {
         this.endpoints = endpoints;
     }
 
-    public static class AppAuthCredentials {
+    public static class AppOauthCredentials {
         private String clientId;
 
         private String clientSecret;
@@ -78,7 +78,7 @@ public class RolodexProperties {
         }
     }
 
-    public static class UserAuthCredentials {
+    public static class UserOauthCredentials {
         private String clientId;
 
         private String clientSecret;
