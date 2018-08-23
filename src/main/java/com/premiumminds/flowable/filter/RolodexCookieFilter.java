@@ -44,7 +44,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
     private static final int MAX_CACHE_SIZE = 100;
 
-    private static final int MAX_CACHE_DURATION_MINUTES = 55;
+    private static final int MAX_CACHE_DURATION_DAYS = 1;
 
     protected FlowableCookieFilterCallback filterCallback;
 
@@ -83,7 +83,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     protected void initUserCache() {
 
         userCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE)
-                .expireAfterWrite(MAX_CACHE_DURATION_MINUTES, TimeUnit.MINUTES).recordStats()
+                .expireAfterWrite(MAX_CACHE_DURATION_DAYS, TimeUnit.DAYS).recordStats()
                 .build(new CacheLoader<String, FlowableAppUser>() {
 
                     @Override
@@ -103,7 +103,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     protected void initTokenCache() {
 
         tokenCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE)
-                .expireAfterWrite(MAX_CACHE_DURATION_MINUTES, TimeUnit.MINUTES).recordStats()
+                .expireAfterWrite(MAX_CACHE_DURATION_DAYS, TimeUnit.DAYS).recordStats()
                 .build(new CacheLoader<String, RemoteToken>() {
 
                     @Override
