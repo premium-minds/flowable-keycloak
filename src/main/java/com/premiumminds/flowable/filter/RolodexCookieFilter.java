@@ -125,7 +125,6 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
 
         if (!skipAuthenticationCheck(request)) {
             if (checkImpersonationHeaders(request)) {
-                LOGGER.info("Request with both user impersionation headers.");
                 if (checkValidAuthHeaderCredentials(request)) {
 
                     RemoteUser user = getUserFromImpersionationHeader(request);
@@ -146,11 +145,11 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                             filterCallback.onValidTokenFound(request, response, token);
                         }
                     } else {
-                        LOGGER.info("User not found.");
+                        LOGGER.warn("User not found.");
                         sendNotPermitted(request, response);
                     }
                 } else {
-                    LOGGER.info("Unauthorized.");
+                    LOGGER.warn("Unauthorized.");
                     sendNotPermitted(request, response);
                     return;
                 }
@@ -176,7 +175,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                         filterCallback.onValidTokenFound(request, response, token);
                     }
                 } else {
-                    LOGGER.info("No valid token found.");
+                    LOGGER.debug("No valid token found.");
                     redirectOrSendNotPermitted(request, response, null);
                 }
             }
@@ -244,7 +243,7 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
                         }
                         return token;
                     } catch (Exception e) {
-                        LOGGER.warn("Could not find token with id {}", tokenId);
+                        LOGGER.debug("Could not find token with id {}", tokenId);
                     }
                 }
             }
