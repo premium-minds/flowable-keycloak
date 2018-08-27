@@ -282,7 +282,7 @@ public class RolodexApi {
         }
 
         for (String roleId : employeesRoles) {
-            String workgroupRolePairId = "W" + workgroupElem.get("uid").asText() + ":R" + roleId;
+            String workgroupRolePairId = "W" + workgroupElem.get("uid").asText() + "---R" + roleId;
             String workgroupRolePairName =
                     workgroupElem.get("name").asText() + " - " + rolesUidNameMap.get(roleId);
             RemoteGroup group = new RemoteGroup();
