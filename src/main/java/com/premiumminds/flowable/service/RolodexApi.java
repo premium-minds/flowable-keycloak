@@ -357,7 +357,7 @@ public class RolodexApi {
 
             user.getGroups().add(new RemoteGroup("W" + workgroupId, workgroupName));
             user.getGroups().add(new RemoteGroup("R" + roleId, roleName));
-            user.getGroups().add(new RemoteGroup("W" + workgroupId + ":R" + roleId,
+            user.getGroups().add(new RemoteGroup("W" + workgroupId + "---R" + roleId,
                     workgroupName + " - " + roleName));
         }
         return user;
