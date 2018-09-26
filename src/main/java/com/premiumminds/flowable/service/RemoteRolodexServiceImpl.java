@@ -95,11 +95,7 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
         List<RemoteUser> users;
         try {
             return usersCache.getElement(userId);
-        } catch (NotFoundException e) {
-            users = populateUsersCache();
-        } catch (ExpiredCacheException e) {
-            users = populateUsersCache();
-        } catch (EmptyCacheException e) {
+        } catch (NotFoundException | EmptyCacheException | ExpiredCacheException e) {
             users = populateUsersCache();
         }
 
