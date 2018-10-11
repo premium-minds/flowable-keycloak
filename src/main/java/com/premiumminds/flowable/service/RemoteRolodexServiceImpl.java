@@ -53,10 +53,12 @@ public class RemoteRolodexServiceImpl implements RemoteIdmService {
 
     private void initUsersCache() {
         usersCache = new SingleElementCache<>();
+        populateUsersCache();
     }
 
     private void initGroupsCache() {
         groupsCache = new SingleElementCache<>();
+        populateGroupsCache();
     }
 
     @Override
