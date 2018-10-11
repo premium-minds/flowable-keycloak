@@ -4,3 +4,4 @@
 .checkstyle
 target/
 .settings/
+.idea/
