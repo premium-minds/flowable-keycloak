@@ -260,13 +260,8 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     protected boolean rolodexAuthenticationCallbackCheck(HttpServletRequest request) {
         //TODO Review this
         LOGGER.debug(request.getRequestURL().toString() + " " + rolodex.getRedirectUrl());
-        try {
-            URI uri = new URI(rolodex.getRedirectUrl());
-            LOGGER.debug(Boolean.toString(request.getRequestURI().equals(uri.getPath())));
-            return request.getRequestURI().equals(uri.getPath());
-        } catch (URISyntaxException e) {
-            throw new RuntimeException("Error parsing rolodex redirect url to uri");
-        }
+        LOGGER.debug(Boolean.toString(request.getRequestURI().equals(request.getContextPath() + "/callback")));
+        return request.getRequestURI().equals(request.getContextPath() + "/callback");
     }
 
     protected void rolodexAuthenticationCallbackHandler(HttpServletRequest request,
