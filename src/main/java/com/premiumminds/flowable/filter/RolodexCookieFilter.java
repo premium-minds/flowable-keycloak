@@ -256,6 +256,8 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     }
 
     protected boolean rolodexAuthenticationCallbackCheck(HttpServletRequest request) {
+        LOGGER.debug(request.getRequestURL().toString() + " " + rolodex.getRedirectUrl());
+        LOGGER.debug(Boolean.toString(request.getRequestURL().toString().equals(rolodex.getRedirectUrl())));
         return request.getRequestURL().toString().equals(rolodex.getRedirectUrl());
     }
 
