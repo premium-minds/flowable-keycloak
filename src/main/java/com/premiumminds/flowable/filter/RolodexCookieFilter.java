@@ -7,6 +7,8 @@ import com.premiumminds.flowable.conf.RolodexProperties;
 import com.premiumminds.flowable.service.RolodexApi;
 import com.premiumminds.flowable.service.RolodexApi.AuthorizationType;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -256,9 +258,15 @@ public class RolodexCookieFilter extends OncePerRequestFilter {
     }
 
     protected boolean rolodexAuthenticationCallbackCheck(HttpServletRequest request) {
+        //TODO Review this
         LOGGER.debug(request.getRequestURL().toString() + " " + rolodex.getRedirectUrl());
         LOGGER.debug(Boolean.toString(request.getRequestURL().toString().equals(rolodex.getRedirectUrl())));
-        return request.getRequestURL().toString().equals(rolodex.getRedirectUrl());
+        try {
+            URI uri = new URI(rolodex.getRedirectUrl());
+            return request.getRequestURI().toString().equals(uri.getPath());
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Error parsing rolodex redirect url to uri");
+        }
     }
 
     protected void rolodexAuthenticationCallbackHandler(HttpServletRequest request,
