@@ -83,6 +83,7 @@ public class AuthenticationHandler {
         loggedUser.setFullName(userInfo.getName());
         loggedUser.setEmail(userInfo.getEmailAddress());
 
+        // TODO get roles from keycloak token
         FlowableAppUser appUser = filter.appUserFromRemoteUser(loggedUser);
         RemoteToken token = tokenFromUser(loggedUser, tokens.getBearerAccessToken());
         updateCaches(appUser, token);
