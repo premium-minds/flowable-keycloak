@@ -5,7 +5,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(RolodexProperties.class)
+@EnableConfigurationProperties(KeycloakProperties.class)
 @ComponentScan(basePackages = { "com.premiumminds.flowable.service" })
-public class RolodexConfiguration {
+public class KeycloakConfiguration {
 }
