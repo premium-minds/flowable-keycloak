@@ -1,9 +1,8 @@
 package com.premiumminds.flowable.conf;
 
-import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "com.premiumminds.flowable.keycloak")
+@ConfigurationProperties(prefix = "keycloak")
 public class KeycloakProperties {
 
     private String url;
@@ -17,6 +16,10 @@ public class KeycloakProperties {
     private int connectTimeout;
 
     private int readTimeout;
+
+    private String adminUsername;
+
+    private String adminPassword;
 
     public Client getClient() {
         return client;
@@ -64,6 +67,22 @@ public class KeycloakProperties {
 
     public void setIssuerUrl(String issuerUrl) {
         this.issuerUrl = issuerUrl;
+    }
+
+    public String getAdminUsername() {
+        return adminUsername;
+    }
+
+    public void setAdminUsername(String adminUsername) {
+        this.adminUsername = adminUsername;
+    }
+
+    public String getAdminPassword() {
+        return adminPassword;
+    }
+
+    public void setAdminPassword(String adminPassword) {
+        this.adminPassword = adminPassword;
     }
 
     public static class Client {

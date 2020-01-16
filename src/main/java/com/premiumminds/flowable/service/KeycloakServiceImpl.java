@@ -6,6 +6,8 @@ import java.util.stream.Collectors;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
+import org.flowable.ui.common.security.DefaultPrivileges;
+import org.flowable.ui.common.service.exception.UnauthorizedException;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
@@ -23,6 +25,10 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     private final RealmResource realm;
 
+    private final String adminUsername;
+
+    private final String adminPassword;
+
     public KeycloakServiceImpl(KeycloakProperties keycloakProperties) {
         this.keycloak = KeycloakBuilder.builder()
                 .serverUrl(keycloakProperties.getUrl())
@@ -33,6 +39,9 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
                 .build();
 
         this.realm = keycloak.realm(keycloakProperties.getRealm());
+
+        this.adminUsername = keycloakProperties.getAdminUsername();
+        this.adminPassword = keycloakProperties.getAdminPassword();
     }
 
     @Override
@@ -49,7 +58,22 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     @Override
     public RemoteUser authenticateUser(String username, String password) {
-        throw new IllegalStateException("call authenticateUser(username='" + username + "') should never happen");
+        if (username != null && password != null && username.equals(adminUsername) && password.equals(adminPassword)) {
+            RemoteUser admin = new RemoteUser();
+            admin.setEmail("admin@premium-flow.com");
+            admin.setFirstName("PremiumFlow");
+            admin.setLastName("Admin");
+            admin.setFullName("PremiumFlow Admin");
+            admin.setId("bc4c66cc-d7b9-41b6-9559-fb4344d26f47");
+            admin.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
+            admin.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
+            admin.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
+
+            return admin;
+        } else {
+            throw new UnauthorizedException("call authenticateUser(username='" + username +
+                    "') username or password no recognized");
+        }
     }
 
     @Override
@@ -59,7 +83,10 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     @Override
     public RemoteUser getUser(String userId) {
-        return convertUser(realm.users().get(userId).toRepresentation());
+        final UserRepresentation user = realm.users().get(userId).toRepresentation();
+        final List<GroupRepresentation> groups = realm.users().get(userId).groups();
+
+        return convertUser(user, groups);
     }
 
     @Override
@@ -100,6 +127,12 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
         remoteGroup.setId(group.getId());
         remoteGroup.setName(group.getName());
         return remoteGroup;
+    }
+
+    private RemoteUser convertUser(UserRepresentation user, List<GroupRepresentation> groups) {
+        RemoteUser remoteUser = convertUser(user);
+        remoteUser.setGroups(groups.stream().map(this::convertGroup).collect(Collectors.toList()));
+        return remoteUser;
     }
 
 }

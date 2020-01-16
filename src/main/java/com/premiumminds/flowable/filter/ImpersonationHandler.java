@@ -15,7 +15,12 @@ import org.springframework.security.authentication.RememberMeAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public class ImpersonationHandler {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ImpersonationHandler.class);
+
+    public static final String USER_IMPERSONATION_UID = "User-Impersonation-Uid";
+
+    public static final String AUTHORIZATION = "Authorization";
 
     protected final String adminUser;
 
@@ -34,13 +39,12 @@ public class ImpersonationHandler {
     }
 
     public boolean handleImpersonatedRequest(HttpServletRequest request, HttpServletResponse response) {
-        if (!checkImpersonationHeaders(request)) return true;
         if (checkValidAuthHeaderCredentials(request)) {
 
             RemoteUser user = getUserFromImpersonationHeader(request);
             if (user != null) {
                 FlowableAppUser appUser = filter.appUserFromRemoteUser(user);
-                if (!filter.validateRequiredPriviliges(request, response, appUser)) {
+                if (!filter.validateRequiredPrivileges(request, response, appUser)) {
                     filter.redirectOrSendNotPermitted(request, response,
                             appUser.getUserObject().getId());
                     return false;
@@ -66,10 +70,10 @@ public class ImpersonationHandler {
         return true;
     }
 
-    private boolean checkImpersonationHeaders(HttpServletRequest request) {
+    public boolean checkImpersonationHeaders(HttpServletRequest request) {
 
-        if (request.getHeader("Authorization") != null &&
-                request.getHeader("User-Impersionation-Uid") != null) {
+        if (request.getHeader(AUTHORIZATION) != null &&
+                request.getHeader(USER_IMPERSONATION_UID) != null) {
             return true;
         }
         return false;
@@ -100,7 +104,7 @@ public class ImpersonationHandler {
 
     private RemoteUser getUserFromImpersonationHeader(HttpServletRequest request) {
         try {
-            return remoteIdmService.getUser(request.getHeader("User-Impersionation-Uid"));
+            return remoteIdmService.getUser(request.getHeader(USER_IMPERSONATION_UID));
         } catch (NotFoundException e) {
             return null;
         }

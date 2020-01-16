@@ -25,10 +25,14 @@ import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.stereotype.Service;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+@Primary
+@Service
 public class KeycloakCookieFilter extends OncePerRequestFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakCookieFilter.class);
@@ -119,10 +123,14 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         }
 
         if (!skipAuthenticationCheck(request)) {
-            if (!impersonationHandler.handleImpersonatedRequest(request, response)){
-                return; // no need to execute extra filters
-            } else if (!authenticationHandler.handleAuthenticatedRequest(request, response)) {
-                return; // no need to execute any other filters
+            if (impersonationHandler.checkImpersonationHeaders(request)) {
+                if (!impersonationHandler.handleImpersonatedRequest(request, response)) {
+                    return; // no need to execute extra filters
+                }
+            } else {
+                if (!authenticationHandler.handleAuthenticatedRequest(request, response)) {
+                    return; // no need to execute any other filters
+                }
             }
         }
         try {
@@ -194,7 +202,7 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         return appUser;
     }
 
-    protected boolean validateRequiredPriviliges(HttpServletRequest request,
+    protected boolean validateRequiredPrivileges(HttpServletRequest request,
             HttpServletResponse response, FlowableAppUser user) {
 
         if (user == null) {

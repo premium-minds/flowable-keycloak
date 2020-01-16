@@ -44,7 +44,7 @@ public class AuthenticationHandler {
         if (token != null) {
             try {
                 FlowableAppUser appUser = userCache.get(token.getUserId());
-                if (!filter.validateRequiredPriviliges(request, response, appUser)) {
+                if (!filter.validateRequiredPrivileges(request, response, appUser)) {
                     filter.redirectOrSendNotPermitted(request, response,
                             appUser.getUserObject().getId());
                     return false;
