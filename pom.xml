@@ -5,7 +5,7 @@
     <name>Flowable Keycloak</name>
     <groupId>com.premiumminds.flowable</groupId>
     <artifactId>flowable-keycloak</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <packaging>jar</packaging>
     <properties>
         <maven.compiler.target>1.8</maven.compiler.target>

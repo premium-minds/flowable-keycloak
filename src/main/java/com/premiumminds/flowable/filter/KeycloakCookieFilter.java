@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.PostConstruct;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -57,7 +56,7 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
 
     protected LoadingCache<String, RemoteToken> tokenCache;
 
-    protected ImpersonationHandler impersonationHandler;
+    protected KeycloakTokenHandler keycloakTokenHandler;
 
     protected AuthenticationHandler authenticationHandler;
 
@@ -69,8 +68,7 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         remoteIdmApi = new KeycloakServiceImpl(keycloakProperties);
         oidcClient = new OIDCClient(keycloakProperties);
 
-        impersonationHandler = new ImpersonationHandler(properties.getIdmAdmin().getUser(),
-                properties.getIdmAdmin().getPassword(), remoteIdmService, this);
+        keycloakTokenHandler = new KeycloakTokenHandler(oidcClient, this);
 
         initUserCache();
         initTokenCache();
@@ -123,8 +121,8 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         }
 
         if (!skipAuthenticationCheck(request)) {
-            if (impersonationHandler.checkImpersonationHeaders(request)) {
-                if (!impersonationHandler.handleImpersonatedRequest(request, response)) {
+            if (keycloakTokenHandler.hasAuthorizationHeader(request)) {
+                if (!keycloakTokenHandler.handle(request, response)) {
                     return; // no need to execute extra filters
                 }
             } else {
