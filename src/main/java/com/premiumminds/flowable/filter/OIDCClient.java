@@ -7,6 +7,7 @@ import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.AuthorizationRequest;
 import com.nimbusds.oauth2.sdk.AuthorizationResponse;
 import com.nimbusds.oauth2.sdk.AuthorizationSuccessResponse;
+import com.nimbusds.oauth2.sdk.ClientCredentialsGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.ResponseType;
 import com.nimbusds.oauth2.sdk.Scope;
@@ -15,6 +16,7 @@ import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
+import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
 import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -31,6 +33,7 @@ import com.nimbusds.openid.connect.sdk.op.OIDCProviderConfigurationRequest;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.premiumminds.flowable.conf.KeycloakProperties;
+import java.io.IOException;
 import java.net.URI;
 import javax.servlet.http.HttpServletRequest;
 
@@ -156,6 +159,27 @@ public class OIDCClient {
             return response.toSuccessResponse().getUserInfo();
         } catch (Exception e) {
             throw new RuntimeException("OpenID Connect - error getting user info", e);
+        }
+    }
+
+    public OIDCTokens authenticate(String username, String password) {
+        ClientAuthentication clientAuthentication = new ClientSecretPost(new ClientID(username), new Secret(password));
+        TokenRequest tokenRequest = new TokenRequest(this.providerMetadata.getTokenEndpointURI(), clientAuthentication,
+                new ClientCredentialsGrant());
+        HTTPRequest httpRequest = configureHttpRequest(tokenRequest.toHTTPRequest());
+
+        try {
+            OIDCTokenResponse response = OIDCTokenResponse.parse(httpRequest.send());
+            if (!response.indicatesSuccess()) {
+                TokenErrorResponse error = response.toErrorResponse();
+                throw new RuntimeException("OpenID Connect - error authenticating client. Message from issuer server\n" +
+                        "\tcode: " + error.getErrorObject().getCode() +
+                        "\tmessage: " + error.getErrorObject().getDescription());
+            }
+
+            return response.getOIDCTokens();
+        } catch (Exception e) {
+            throw new RuntimeException("OpenID Connect - error authenticating client", e);
         }
     }
 

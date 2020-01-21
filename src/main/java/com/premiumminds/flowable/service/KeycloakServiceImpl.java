@@ -1,6 +1,8 @@
 package com.premiumminds.flowable.service;
 
+import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.premiumminds.flowable.conf.KeycloakProperties;
+import com.premiumminds.flowable.filter.OIDCClient;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.flowable.ui.common.model.RemoteGroup;
@@ -15,19 +17,21 @@ import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 @Primary
 @Service
 public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakServiceImpl.class);
+
     private final Keycloak keycloak;
 
     private final RealmResource realm;
 
-    private final String adminUsername;
-
-    private final String adminPassword;
+    private final OIDCClient oidcClient;
 
     public KeycloakServiceImpl(KeycloakProperties keycloakProperties) {
         this.keycloak = KeycloakBuilder.builder()
@@ -40,8 +44,7 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
         this.realm = keycloak.realm(keycloakProperties.getRealm());
 
-        this.adminUsername = keycloakProperties.getAdminUsername();
-        this.adminPassword = keycloakProperties.getAdminPassword();
+        this.oidcClient = new OIDCClient(keycloakProperties);
     }
 
     @Override
@@ -58,19 +61,17 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     @Override
     public RemoteUser authenticateUser(String username, String password) {
-        if (username != null && password != null && username.equals(adminUsername) && password.equals(adminPassword)) {
-            RemoteUser admin = new RemoteUser();
-            admin.setEmail("admin@premium-flow.com");
-            admin.setFirstName("PremiumFlow");
-            admin.setLastName("Admin");
-            admin.setFullName("PremiumFlow Admin");
-            admin.setId("bc4c66cc-d7b9-41b6-9559-fb4344d26f47");
-            admin.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
-            admin.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
-            admin.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
+        try {
+            OIDCTokens tokens = oidcClient.authenticate(username, password);
 
-            return admin;
-        } else {
+            RemoteUser user = new RemoteUser();
+            user.setId(username);
+            user.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
+            user.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
+            user.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
+            return user;
+        } catch (Exception e) {
+            LOGGER.warn("error authenticating", e);
             throw new UnauthorizedException("call authenticateUser(username='" + username +
                     "') username or password no recognized");
         }
