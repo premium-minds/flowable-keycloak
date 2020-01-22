@@ -22,12 +22,6 @@ public class KeycloakAccessTokenVerifier implements JWTClaimsSetVerifier<Securit
 
 
     /**
-     * The requesting client.
-     */
-    private final ClientID expectedClientID;
-
-
-    /**
      * The expected nonce, {@code null} if not required or specified.
      */
     private final Nonce expectedNonce;
@@ -47,7 +41,6 @@ public class KeycloakAccessTokenVerifier implements JWTClaimsSetVerifier<Securit
         if (clientID == null) {
             throw new IllegalArgumentException("The client ID must not be null");
         }
-        this.expectedClientID = clientID;
         this.expectedNonce = nonce;
     }
 
@@ -83,12 +76,6 @@ public class KeycloakAccessTokenVerifier implements JWTClaimsSetVerifier<Securit
             tokenAzp = claimsSet.getStringClaim("azp");
         } catch (java.text.ParseException e) {
             throw new BadJWTException("Invalid JWT authorized party (azp) claim: " + e.getMessage());
-        }
-
-        if (tokenAzp != null) {
-            if (!expectedClientID.getValue().equals(tokenAzp)) {
-                throw new BadJWTException("Unexpected JWT authorized party (azp) claim: " + tokenAzp);
-            }
         }
 
         final Date exp = claimsSet.getExpirationTime();
