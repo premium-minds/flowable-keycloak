@@ -4,8 +4,14 @@ import com.google.common.cache.LoadingCache;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
+import com.premiumminds.flowable.conf.KeycloakProperties;
+import com.premiumminds.flowable.service.KeycloakAccessTokenExtractor;
+import com.premiumminds.flowable.service.OIDCClient;
+import com.premiumminds.flowable.service.OIDCMetadataHolder;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import javax.servlet.http.Cookie;
@@ -29,14 +35,23 @@ public class AuthenticationHandler {
 
     private final OIDCClient oidcClient;
 
+    private final KeycloakAccessTokenExtractor accessTokenExtractor;
+
     private final KeycloakCookieFilter filter;
 
     public AuthenticationHandler(LoadingCache<String, FlowableAppUser> userCache,
-            LoadingCache<String, RemoteToken> tokenCache, OIDCClient oidcClient, KeycloakCookieFilter filter) {
+            LoadingCache<String, RemoteToken> tokenCache, KeycloakProperties keycloakProperties, KeycloakCookieFilter filter) {
         this.userCache = userCache;
         this.tokenCache = tokenCache;
-        this.oidcClient = oidcClient;
         this.filter = filter;
+
+        OIDCMetadataHolder metadataHolder = new OIDCMetadataHolder(keycloakProperties);
+        this.oidcClient = new OIDCClient(keycloakProperties, metadataHolder);
+        this.accessTokenExtractor = new KeycloakAccessTokenExtractor(keycloakProperties, metadataHolder);
+    }
+
+    public URI login() {
+        return oidcClient.login();
     }
 
     public boolean handleAuthenticatedRequest(HttpServletRequest request, HttpServletResponse response) {
@@ -74,7 +89,8 @@ public class AuthenticationHandler {
             HttpServletResponse response) throws IOException {
 
         OIDCTokens tokens = oidcClient.getOIDCTokens(request);
-        UserInfo userInfo = oidcClient.getUserInfo(tokens.getBearerAccessToken());
+        final BearerAccessToken accessToken = tokens.getBearerAccessToken();
+        UserInfo userInfo = oidcClient.getUserInfo(accessToken);
 
         RemoteUser loggedUser = new RemoteUser();
         loggedUser.setId(userInfo.getSubject().getValue());
@@ -83,9 +99,11 @@ public class AuthenticationHandler {
         loggedUser.setFullName(userInfo.getName());
         loggedUser.setEmail(userInfo.getEmailAddress());
 
-        // TODO get roles from keycloak token
+        List<String> roles = accessTokenExtractor.getRoles(accessToken.getValue());
+        loggedUser.getPrivileges().addAll(roles);
+
         FlowableAppUser appUser = filter.appUserFromRemoteUser(loggedUser);
-        RemoteToken token = tokenFromUser(loggedUser, tokens.getBearerAccessToken());
+        RemoteToken token = tokenFromUser(loggedUser, accessToken);
         updateCaches(appUser, token);
 
         addRememberCookie(token.getId(), response);

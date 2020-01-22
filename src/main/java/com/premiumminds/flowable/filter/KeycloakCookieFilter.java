@@ -5,6 +5,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.premiumminds.flowable.conf.KeycloakProperties;
 import com.premiumminds.flowable.service.KeycloakServiceImpl;
+import com.premiumminds.flowable.service.OIDCClient;
 import com.premiumminds.flowable.service.RemoteIdmApi;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,8 +49,6 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
 
     private RemoteIdmApi remoteIdmApi;
 
-    private OIDCClient oidcClient;
-
     protected Collection<String> requiredPrivileges;
 
     protected LoadingCache<String, FlowableAppUser> userCache;
@@ -66,14 +65,13 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         this.properties = properties;
 
         remoteIdmApi = new KeycloakServiceImpl(keycloakProperties);
-        oidcClient = new OIDCClient(keycloakProperties);
 
-        keycloakTokenHandler = new KeycloakTokenHandler(oidcClient, this);
+        keycloakTokenHandler = new KeycloakTokenHandler(keycloakProperties, this);
 
         initUserCache();
         initTokenCache();
 
-        authenticationHandler = new AuthenticationHandler(userCache, tokenCache, oidcClient, this);
+        authenticationHandler = new AuthenticationHandler(userCache, tokenCache, keycloakProperties, this);
 
     }
 
@@ -173,7 +171,7 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
             userCache.invalidate(userId);
         }
         try {
-            response.sendRedirect(oidcClient.login().toASCIIString());
+            response.sendRedirect(authenticationHandler.login().toASCIIString());
         } catch (IOException e) {
             throw new RuntimeException("error redirecting user to oidc login", e);
         }
@@ -190,11 +188,9 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
 
     protected FlowableAppUser appUserFromRemoteUser(RemoteUser user) {
         Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_MODELER));
-        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_TASK));
-        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_REST_API));
-        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_ADMIN));
-        authorities.add(new SimpleGrantedAuthority(DefaultPrivileges.ACCESS_IDM));
+        user.getPrivileges().forEach(p -> {
+            authorities.add(new SimpleGrantedAuthority(p));
+        });
 
         FlowableAppUser appUser = new FlowableAppUser(user, user.getId(), authorities);
         return appUser;

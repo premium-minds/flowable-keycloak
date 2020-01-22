@@ -3,6 +3,11 @@ package com.premiumminds.flowable.filter;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
+import com.premiumminds.flowable.conf.KeycloakProperties;
+import com.premiumminds.flowable.service.KeycloakAccessTokenExtractor;
+import com.premiumminds.flowable.service.OIDCClient;
+import com.premiumminds.flowable.service.OIDCMetadataHolder;
+import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.flowable.ui.common.model.RemoteToken;
@@ -22,10 +27,15 @@ public class KeycloakTokenHandler {
 
     private final OIDCClient oidcClient;
 
-    public KeycloakTokenHandler(OIDCClient oidcClient,
+    private final KeycloakAccessTokenExtractor accessTokenExtractor;
+
+    public KeycloakTokenHandler(KeycloakProperties keycloakProperties,
             KeycloakCookieFilter filter) {
         this.filter = filter;
-        this.oidcClient = oidcClient;
+
+        OIDCMetadataHolder metadataHolder = new OIDCMetadataHolder(keycloakProperties);
+        this.oidcClient = new OIDCClient(keycloakProperties, metadataHolder);
+        this.accessTokenExtractor = new KeycloakAccessTokenExtractor(keycloakProperties, metadataHolder);
     }
 
     public boolean hasAuthorizationHeader(HttpServletRequest request) {
@@ -37,6 +47,10 @@ public class KeycloakTokenHandler {
         if (accessToken != null) {
             UserInfo userInfo = oidcClient.getUserInfo(accessToken);
             RemoteUser user = convertUser(userInfo);
+
+            List<String> roles = accessTokenExtractor.getRoles(accessToken.getValue());
+            user.getPrivileges().addAll(roles);
+
             FlowableAppUser appUser = filter.appUserFromRemoteUser(user);
             if (!filter.validateRequiredPrivileges(request, response, appUser)) {
                 filter.redirectOrSendNotPermitted(request, response,

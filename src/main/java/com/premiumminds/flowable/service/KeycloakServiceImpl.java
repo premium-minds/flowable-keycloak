@@ -2,13 +2,11 @@ package com.premiumminds.flowable.service;
 
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.premiumminds.flowable.conf.KeycloakProperties;
-import com.premiumminds.flowable.filter.OIDCClient;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
-import org.flowable.ui.common.security.DefaultPrivileges;
 import org.flowable.ui.common.service.exception.UnauthorizedException;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.keycloak.OAuth2Constants;
@@ -33,6 +31,8 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     private final OIDCClient oidcClient;
 
+    private final KeycloakAccessTokenExtractor accessTokenExtractor;
+
     public KeycloakServiceImpl(KeycloakProperties keycloakProperties) {
         this.keycloak = KeycloakBuilder.builder()
                 .serverUrl(keycloakProperties.getUrl())
@@ -44,7 +44,9 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
         this.realm = keycloak.realm(keycloakProperties.getRealm());
 
-        this.oidcClient = new OIDCClient(keycloakProperties);
+        OIDCMetadataHolder metadataHolder = new OIDCMetadataHolder(keycloakProperties);
+        this.oidcClient = new OIDCClient(keycloakProperties, metadataHolder);
+        this.accessTokenExtractor = new KeycloakAccessTokenExtractor(keycloakProperties, metadataHolder);
     }
 
     @Override
@@ -63,12 +65,12 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
     public RemoteUser authenticateUser(String username, String password) {
         try {
             OIDCTokens tokens = oidcClient.authenticate(username, password);
+            String accessToken = tokens.getBearerAccessToken().getValue();
+            List<String> roles = accessTokenExtractor.getRoles(accessToken);
 
             RemoteUser user = new RemoteUser();
             user.setId(username);
-            user.getPrivileges().add(DefaultPrivileges.ACCESS_REST_API);
-            user.getPrivileges().add(DefaultPrivileges.ACCESS_TASK);
-            user.getPrivileges().add(DefaultPrivileges.ACCESS_ADMIN);
+            user.getPrivileges().addAll(roles);
             return user;
         } catch (Exception e) {
             LOGGER.warn("error authenticating", e);
