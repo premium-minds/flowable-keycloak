@@ -4,6 +4,7 @@ import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.premiumminds.flowable.conf.KeycloakProperties;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.ws.rs.NotFoundException;
 import org.flowable.ui.common.model.RemoteGroup;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
@@ -86,10 +87,14 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     @Override
     public RemoteUser getUser(String userId) {
-        final UserRepresentation user = realm.users().get(userId).toRepresentation();
-        final List<GroupRepresentation> groups = realm.users().get(userId).groups();
+        try {
+            final UserRepresentation user = realm.users().get(userId).toRepresentation();
+            final List<GroupRepresentation> groups = realm.users().get(userId).groups();
 
-        return convertUser(user, groups);
+            return convertUser(user, groups);
+        } catch (NotFoundException ex) {
+            throw new NotFoundException("user with id '" + userId + "' not found", ex);
+        }
     }
 
     @Override
@@ -106,7 +111,12 @@ public class KeycloakServiceImpl implements RemoteIdmApi, RemoteIdmService {
 
     @Override
     public RemoteGroup getGroup(String groupId) {
-        return convertGroup(realm.groups().group(groupId).toRepresentation());
+        try {
+            return convertGroup(realm.groups().group(groupId).toRepresentation());
+        } catch (NotFoundException ex) {
+            throw new NotFoundException("group with id '" + groupId + "' not found", ex);
+        }
+
     }
 
     @Override
