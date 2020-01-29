@@ -6,6 +6,7 @@ import com.premiumminds.flowable.conf.KeycloakProperties;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -158,9 +159,9 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         return pathInfo == null || "".equals(pathInfo) || "/".equals(pathInfo);
     }
 
-    protected FlowableAppUser appUserFromRemoteUser(RemoteUser user) {
+    protected FlowableAppUser appUserFromRemoteUser(RemoteUser user, List<String> privileges) {
         Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        user.getPrivileges().forEach(p -> {
+        privileges.forEach(p -> {
             authorities.add(new SimpleGrantedAuthority(p));
         });
 

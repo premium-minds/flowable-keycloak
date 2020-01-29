@@ -51,9 +51,8 @@ public class KeycloakTokenHandler {
             RemoteUser user = remoteIdmService.getUser(userId);
 
             List<String> roles = accessTokenExtractor.getRoles(claims);
-            user.getPrivileges().addAll(roles);
 
-            FlowableAppUser appUser = filter.appUserFromRemoteUser(user);
+            FlowableAppUser appUser = filter.appUserFromRemoteUser(user, roles);
             if (!filter.validateRequiredPrivileges(request, response, appUser)) {
                 filter.redirectOrSendNotPermitted(request, response,
                         appUser.getUserObject().getId());

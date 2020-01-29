@@ -97,9 +97,8 @@ public class AuthenticationHandler {
         RemoteUser loggedUser = remoteIdmService.getUser(userId);
 
         List<String> roles = accessTokenExtractor.getRoles(accessToken.getValue());
-        loggedUser.getPrivileges().addAll(roles);
 
-        FlowableAppUser appUser = filter.appUserFromRemoteUser(loggedUser);
+        FlowableAppUser appUser = filter.appUserFromRemoteUser(loggedUser, roles);
         RemoteToken token = tokenFromUser(loggedUser, accessToken);
         updateCaches(appUser, token);
 
