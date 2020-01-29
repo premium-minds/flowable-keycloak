@@ -1,11 +1,10 @@
 package com.premiumminds.flowable.filter;
 
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
-import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.premiumminds.flowable.conf.KeycloakProperties;
 import com.premiumminds.flowable.service.KeycloakAccessTokenExtractor;
-import com.premiumminds.flowable.service.OIDCClient;
 import com.premiumminds.flowable.service.OIDCMetadataHolder;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
@@ -13,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
 import org.flowable.ui.common.security.FlowableAppUser;
+import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.RememberMeAuthenticationToken;
@@ -25,16 +25,16 @@ public class KeycloakTokenHandler {
 
     private final KeycloakCookieFilter filter;
 
-    private final OIDCClient oidcClient;
-
     private final KeycloakAccessTokenExtractor accessTokenExtractor;
 
+    private final RemoteIdmService remoteIdmService;
+
     public KeycloakTokenHandler(KeycloakProperties keycloakProperties,
-            KeycloakCookieFilter filter) {
+            KeycloakCookieFilter filter, RemoteIdmService remoteIdmService) {
         this.filter = filter;
+        this.remoteIdmService = remoteIdmService;
 
         OIDCMetadataHolder metadataHolder = new OIDCMetadataHolder(keycloakProperties);
-        this.oidcClient = new OIDCClient(keycloakProperties, metadataHolder);
         this.accessTokenExtractor = new KeycloakAccessTokenExtractor(keycloakProperties, metadataHolder);
     }
 
@@ -45,10 +45,12 @@ public class KeycloakTokenHandler {
     public boolean handle(HttpServletRequest request, HttpServletResponse response) {
         BearerAccessToken accessToken = getAccessToken(request);
         if (accessToken != null) {
-            UserInfo userInfo = oidcClient.getUserInfo(accessToken);
-            RemoteUser user = convertUser(userInfo);
+            JWTClaimsSet claims = accessTokenExtractor.extractClaims(accessToken.getValue());
+            String userId = accessTokenExtractor.getUserId(claims);
 
-            List<String> roles = accessTokenExtractor.getRoles(accessToken.getValue());
+            RemoteUser user = remoteIdmService.getUser(userId);
+
+            List<String> roles = accessTokenExtractor.getRoles(claims);
             user.getPrivileges().addAll(roles);
 
             FlowableAppUser appUser = filter.appUserFromRemoteUser(user);
@@ -82,14 +84,5 @@ public class KeycloakTokenHandler {
         } catch (ParseException e) {
             return null;
         }
-    }
-
-    private RemoteUser convertUser(UserInfo userInfo) {
-        RemoteUser user = new RemoteUser();
-        user.setId(userInfo.getSubject().getValue());
-        user.setFirstName(userInfo.getGivenName());
-        user.setLastName(userInfo.getFamilyName());
-        user.setEmail(userInfo.getEmailAddress());
-        return user;
     }
 }

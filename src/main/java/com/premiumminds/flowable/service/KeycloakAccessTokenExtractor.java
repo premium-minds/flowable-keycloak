@@ -50,7 +50,10 @@ public class KeycloakAccessTokenExtractor {
 
     public List<String> getRoles(String accessToken) {
         JWTClaimsSet claims = extractClaims(accessToken);
+        return getRoles(claims);
+    }
 
+    public List<String> getRoles(JWTClaimsSet claims) {
         List<String> roles = new ArrayList<>();
         try {
             JSONObject resourceAccess = claims.getJSONObjectClaim("resource_access");
@@ -72,7 +75,11 @@ public class KeycloakAccessTokenExtractor {
         return roles;
     }
 
-    private JWTClaimsSet extractClaims(String accessToken) {
+    public String getUserId(JWTClaimsSet claims) {
+        return claims.getSubject();
+    }
+
+    public JWTClaimsSet extractClaims(String accessToken) {
         try {
             JWT jwt = JWTParser.parse(accessToken);
 

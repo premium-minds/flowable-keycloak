@@ -21,13 +21,8 @@ import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
-import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
-import com.nimbusds.openid.connect.sdk.UserInfoErrorResponse;
-import com.nimbusds.openid.connect.sdk.UserInfoRequest;
-import com.nimbusds.openid.connect.sdk.UserInfoResponse;
-import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.premiumminds.flowable.conf.KeycloakProperties;
@@ -113,25 +108,6 @@ public class OIDCClient extends OIDCRequestService {
         } catch (ParseException e) {
             throw new RuntimeException("OpenID Connect - error parsing callback request '" +
                     requestUri.toASCIIString() + "'", e);
-        }
-    }
-
-    public UserInfo getUserInfo(BearerAccessToken accessToken) {
-        UserInfoRequest request = new UserInfoRequest(providerMetadata.getUserInfoEndpointURI(), accessToken);
-        HTTPRequest httpRequest = configureHttpRequest(request.toHTTPRequest());
-
-        try {
-            UserInfoResponse response = UserInfoResponse.parse(httpRequest.send());
-            if (!response.indicatesSuccess()) {
-                UserInfoErrorResponse error = response.toErrorResponse();
-                throw new RuntimeException("OpenID Connect - error getting user info. Message from issuer server\n" +
-                        "\tcode: " + error.getErrorObject().getCode() +
-                        "\tmessage: " + error.getErrorObject().getDescription());
-            }
-
-            return response.toSuccessResponse().getUserInfo();
-        } catch (Exception e) {
-            throw new RuntimeException("OpenID Connect - error getting user info", e);
         }
     }
 

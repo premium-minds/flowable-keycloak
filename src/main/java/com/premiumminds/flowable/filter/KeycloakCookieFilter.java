@@ -1,12 +1,8 @@
 package com.premiumminds.flowable.filter;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.premiumminds.flowable.conf.KeycloakProperties;
-import com.premiumminds.flowable.service.KeycloakServiceImpl;
-import com.premiumminds.flowable.service.OIDCClient;
-import com.premiumminds.flowable.service.RemoteIdmApi;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,7 +15,6 @@ import org.flowable.ui.common.filter.FlowableCookieFilterCallback;
 import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
 import org.flowable.ui.common.properties.FlowableCommonAppProperties;
-import org.flowable.ui.common.security.DefaultPrivileges;
 import org.flowable.ui.common.security.FlowableAppUser;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
 import org.slf4j.Logger;
@@ -47,13 +42,11 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
 
     protected final FlowableCommonAppProperties properties;
 
-    private RemoteIdmApi remoteIdmApi;
-
     protected Collection<String> requiredPrivileges;
 
-    protected LoadingCache<String, FlowableAppUser> userCache;
+    protected Cache<String, FlowableAppUser> userCache;
 
-    protected LoadingCache<String, RemoteToken> tokenCache;
+    protected Cache<String, RemoteToken> tokenCache;
 
     protected KeycloakTokenHandler keycloakTokenHandler;
 
@@ -64,14 +57,13 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
         this.remoteIdmService = remoteIdmService;
         this.properties = properties;
 
-        remoteIdmApi = new KeycloakServiceImpl(keycloakProperties);
-
-        keycloakTokenHandler = new KeycloakTokenHandler(keycloakProperties, this);
+        keycloakTokenHandler = new KeycloakTokenHandler(keycloakProperties, this, remoteIdmService);
 
         initUserCache();
         initTokenCache();
 
-        authenticationHandler = new AuthenticationHandler(userCache, tokenCache, keycloakProperties, this);
+        authenticationHandler = new AuthenticationHandler(userCache, tokenCache, keycloakProperties,
+                remoteIdmService, this);
 
     }
 
@@ -79,34 +71,14 @@ public class KeycloakCookieFilter extends OncePerRequestFilter {
 
         userCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE)
                 .expireAfterWrite(MAX_CACHE_DURATION_DAYS, TimeUnit.DAYS).recordStats()
-                .build(new CacheLoader<String, FlowableAppUser>() {
-
-                    @Override
-                    public FlowableAppUser load(String userId) throws Exception {
-                        RemoteUser user = remoteIdmService.getUser(userId);
-                        Collection<GrantedAuthority> grantedAuthorities = new ArrayList<>();
-                        for (String privilege : user.getPrivileges()) {
-                            grantedAuthorities.add(new SimpleGrantedAuthority(privilege));
-                        }
-                        FlowableAppUser appUser =
-                                new FlowableAppUser(user, user.getId(), grantedAuthorities);
-                        return appUser;
-                    }
-                });
+                .build();
     }
 
     protected void initTokenCache() {
 
         tokenCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE)
                 .expireAfterWrite(MAX_CACHE_DURATION_DAYS, TimeUnit.DAYS).recordStats()
-                .build(new CacheLoader<String, RemoteToken>() {
-
-                    @Override
-                    public RemoteToken load(String tokenId) throws Exception {
-                        // must never reach here directly.
-                        return null;
-                    }
-                });
+                .build();
     }
 
     @Override
