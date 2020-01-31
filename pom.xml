@@ -136,7 +136,7 @@
                 <artifactId>maven-license-plugin</artifactId>
                 <version>1.10.b1</version>
                 <configuration>
-                    <header>licence-preamble.txt</header>
+                    <header>share/licence-preamble.txt</header>
                     <strictCheck>true</strictCheck>
                     <failIfMissing>true</failIfMissing>
                     <includes>
