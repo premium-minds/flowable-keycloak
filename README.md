@@ -15,7 +15,7 @@ Add the following maven dependency to your project `pom.xml`:
    <version>1.5</version>
 </dependency>
 ```
-Check out [sonatype repository](https://oss.sonatype.org/index.html#nexus-search;quick~wicket-crudifier) for latest snapshots and releases.
+Check out [sonatype repository](https://oss.sonatype.org/index.html#nexus-search;quick~flowable-keycloak) for latest snapshots and releases.
 
 ## Example usage
 
