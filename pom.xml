@@ -77,7 +77,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>oauth2-oidc-sdk</artifactId>
-            <version>6.18.1</version>
+            <version>8.5</version>
         </dependency>
 
         <!-- Servlet -->
