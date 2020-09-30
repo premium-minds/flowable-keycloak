@@ -46,7 +46,7 @@
         <dependency>
             <groupId>org.flowable</groupId>
             <artifactId>flowable-ui-common</artifactId>
-            <version>6.3.1</version>
+            <version>6.5.0</version>
             <scope>provided</scope>
         </dependency>
 
