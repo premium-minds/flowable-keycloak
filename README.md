@@ -12,7 +12,7 @@ Add the following maven dependency to your project `pom.xml`:
 <dependency>
    <groupId>com.premiumminds.flowable</groupId>
    <artifactId>flowable-keycloak</artifactId>
-   <version>1.5</version>
+   <version>1.6</version>
 </dependency>
 ```
 Check out [sonatype repository](https://oss.sonatype.org/index.html#nexus-search;quick~flowable-keycloak) for latest snapshots and releases.
