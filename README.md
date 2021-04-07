@@ -67,9 +67,9 @@ So you should have this as client roles in keycloak instance.
 
 ## Continuous Integration
 
-[![Build Status](https://travis-ci.org/premium-minds/flowable-keycloak.png?branch=master)](https://travis-ci.org/premium-minds/flowable-keycloak)
+[![Build Status](https://travis-ci.com/premium-minds/flowable-keycloak.png?branch=master)](https://travis-ci.com/github/premium-minds/flowable-keycloak)
 
-CI is hosted by [travis-ci.org](https://travis-ci.org/)
+CI is hosted by [travis-ci.com](https://travis-ci.com/)
 
 ## Licence
 
