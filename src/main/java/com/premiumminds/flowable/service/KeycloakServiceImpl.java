@@ -34,6 +34,8 @@ import org.flowable.ui.common.model.RemoteToken;
 import org.flowable.ui.common.model.RemoteUser;
 import org.flowable.ui.common.service.exception.UnauthorizedException;
 import org.flowable.ui.common.service.idm.RemoteIdmService;
+import org.jboss.resteasy.client.jaxrs.ResteasyClient;
+import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -50,8 +52,6 @@ import org.springframework.stereotype.Service;
 public class KeycloakServiceImpl implements RemoteIdmService {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakServiceImpl.class);
 
-    private final Keycloak keycloak;
-
     private final RealmResource realm;
 
     private final OIDCClient oidcClient;
@@ -65,12 +65,17 @@ public class KeycloakServiceImpl implements RemoteIdmService {
     private final LoadingCache<String, List<RemoteUser>> groupsUsersCache;
 
     public KeycloakServiceImpl(KeycloakProperties keycloakProperties) {
-        this.keycloak = KeycloakBuilder.builder()
+        ResteasyClientBuilder clientBuilder = new ResteasyClientBuilder();
+        clientBuilder.register(KeycloakClientJacksonProvider.class);
+        ResteasyClient client = clientBuilder.build();
+
+        Keycloak keycloak = KeycloakBuilder.builder()
                 .serverUrl(keycloakProperties.getUrl())
                 .realm(keycloakProperties.getRealm())
                 .clientId(keycloakProperties.getClient().getClientId())
                 .clientSecret(keycloakProperties.getClient().getClientSecret())
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+                .resteasyClient(client)
                 .build();
 
         this.realm = keycloak.realm(keycloakProperties.getRealm());

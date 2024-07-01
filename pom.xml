@@ -243,13 +243,13 @@
         <snapshotRepository>
             <id>premiumminds-nexus-snapshots</id>
             <name>premiumminds-nexus-snapshots</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots </url>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
 
         <repository>
             <id>premiumminds-nexus-staging</id>
             <name>premiumminds-nexus-staging</name>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2 </url>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
         </repository>
 
     </distributionManagement>
