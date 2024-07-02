@@ -66,7 +66,7 @@ public class KeycloakServiceImpl implements RemoteIdmService {
 
     public KeycloakServiceImpl(KeycloakProperties keycloakProperties) {
         ResteasyClientBuilder clientBuilder = new ResteasyClientBuilder();
-        clientBuilder.register(KeycloakClientJacksonProvider.class);
+        clientBuilder.register(new KeycloakClientJacksonProvider(), 100);
         ResteasyClient client = clientBuilder.build();
 
         Keycloak keycloak = KeycloakBuilder.builder()
