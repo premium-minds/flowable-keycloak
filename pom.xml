@@ -3,7 +3,7 @@
 
     <groupId>com.premiumminds.flowable</groupId>
     <artifactId>flowable-keycloak</artifactId>
-    <version>1.7.1</version>
+    <version>1.8-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Flowable Keycloak</name>
@@ -28,7 +28,7 @@
         <url>https://github.com/premium-minds/flowable-keycloak</url>
         <connection>scm:git:git@github.com:premium-minds/flowable-keycloak.git</connection>
         <developerConnection>scm:git:git@github.com:premium-minds/flowable-keycloak.git</developerConnection>
-        <tag>v1.7.1</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <developers>
