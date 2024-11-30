@@ -1,0 +1,27 @@
+version: 2
+updates:
+- package-ecosystem: maven
+  directory: "/"
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: org.flowable:flowable-ui-common
+    versions:
+    - "> 6.5.0"
+  - dependency-name: org.jboss.resteasy:resteasy-client
+    versions:
+    - ">= 4.a, < 5"
+  - dependency-name: com.nimbusds:oauth2-oidc-sdk
+    versions:
+    - "8.30"
+    - "8.36"
+  - dependency-name: org.jboss.resteasy:resteasy-client
+    versions:
+    - 3.14.0.Final
+  - dependency-name: org.keycloak:keycloak-admin-client
+    versions:
+    - 12.0.1
+  - dependency-name: org.jboss.resteasy:resteasy-jackson2-provider
+    versions:
+    - 4.5.8.Final
